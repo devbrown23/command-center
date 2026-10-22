@@ -145,6 +145,7 @@ function renderOverview() {
     openTodos += todos.length;
     const counts = biz.stages.map((st) => `${st}: ${s.pipeline.filter((p) => p.stage === st).length}`).join(" · ");
     return `<div class="card biz" style="--tab:${biz.color}" data-goto="${biz.id}">
+      <div class="wanted">WANTED</div>
       <h3>${esc(biz.name)} <span class="muted">${esc(biz.subtitle)}</span></h3>
       <div class="stats">
         <div class="stat"><div class="label">Income</div><div class="value">${money(t.income)}</div></div>
@@ -163,7 +164,7 @@ function renderOverview() {
       <div class="stats">
         <div class="stat"><div class="label">Total income</div><div class="value">${money(totalIncome)}</div></div>
         <div class="stat"><div class="label">Total expenses</div><div class="value">${money(totalExpense)}</div></div>
-        <div class="stat"><div class="label">Total profit</div><div class="value ${profit >= 0 ? "pos" : "neg"}">${money(profit)}</div></div>
+        <div class="stat"><div class="label">Total bounty (profit)</div><div class="value ${profit >= 0 ? "pos" : "neg"}">${money(profit)}</div></div>
         <div class="stat"><div class="label">Open to-dos</div><div class="value">${openTodos}</div></div>
       </div>
     </div>
