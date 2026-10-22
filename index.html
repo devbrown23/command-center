@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Command Center</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <h1>Command Center</h1>
+    <div class="top-actions">
+      <label>Month <input type="month" id="month"></label>
+      <button id="export" class="ghost">Export backup</button>
+      <label class="ghost btn-file">Import backup<input type="file" id="import" accept="application/json" hidden></label>
+    </div>
+  </header>
+
+  <nav id="tabs" class="tabs"></nav>
+  <main id="view"></main>
+
+  <footer class="foot">Your data is saved in this browser only. Use Export backup to keep a copy or move it to another device.</footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
