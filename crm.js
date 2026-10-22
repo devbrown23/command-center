@@ -2,7 +2,9 @@
 // Loaded before app.js. Uses state, save, render, uid and esc from app.js at runtime.
 
 const FUB_SETTINGS_KEY = "command-center-fub"; // kept out of the backup file on purpose
-const DEFAULT_FUB_URL = "https://fromstart2keys.vercel.app/api/crm-contact";
+const DEFAULT_FUB_URL = "https://www.fromstart2keys.com/api/crm-contact";
+const DEFAULT_REVIEW_URL = "https://www.fromstart2keys.com/review.html";
+const REVIEW_STAGES = ["Closed", "Past Client", "Sphere"]; // who to ask first
 
 const CRM_SOURCES = ["Sphere", "Past client", "Open house", "Social media", "Homebuyer class", "FSBO / Expired", "Door knock", "Referral", "Lender / Partner", "Other"];
 const CRM_STAGES = ["Lead", "Sphere", "Hot Prospect", "Active Client", "Under Contract", "Closed", "Past Client"];
@@ -42,6 +44,8 @@ const WEEK_PLAN = [
       "Call 10 people in your sphere",
       "Text 5 past clients a check-in",
       "Add 5 new names to the CRM (phone contacts, Facebook, LinkedIn)",
+      "Ask 3 past clients for a review (Reviews card below)",
+      "Google Business post: market update",
     ],
     script: "Hey ___, it's Devin! I was thinking about you. How's everything with the family? ... Quick question: who do you know who's thinking about buying or selling this year?",
   },
@@ -60,6 +64,7 @@ const WEEK_PLAN = [
       "Call or knock on 10 neighbors around a recent closing",
       "Reach out to 5 FSBO or expired listings",
       "Add every new person to the CRM before you leave the street",
+      "Google Business post: home tip or just sold",
     ],
     script: "Hi, I'm Devin with From Start 2 Keys. I just helped a family close on a home right down the street. Are you curious what that means for your home's value?",
   },
@@ -79,6 +84,7 @@ const WEEK_PLAN = [
       "Call 3 lenders or referral partners",
       "Write 5 handwritten notes",
       "Lock in a weekend open house",
+      "Google Business post: homebuyer class or open house",
     ],
     script: "Hi ___, it's Devin from the homebuyer class. Did you get a chance to talk with a lender yet? I can connect you with someone great.",
   },
@@ -86,16 +92,67 @@ const WEEK_PLAN = [
     theme: "Open house day",
     steps: [
       "Host an open house. Goal: 20 sign-ins, all added to the CRM",
+      "Put the review QR card on the sign-in table",
       "No open house? Coffee or lunch with 2 sphere people and 18 texts",
     ],
     script: "Thanks for coming by! Are you looking in this neighborhood, or just getting ideas? I'll send you the homes that don't make it online.",
   },
 ];
 
+// Google Business Profile: 3 posts a week. Ideas rotate weekly.
+const GBP_SLOTS = [
+  { day: "Mon", type: "Market update", ideas: [
+    "What homes sold for in your area last month, in 3 bullet points",
+    "Interest rates this week and what they mean for a $450K home payment",
+    "How many days homes are sitting on the market in Tacoma right now",
+    "Buyer's market or seller's market? Your honest take for South Sound",
+  ] },
+  { day: "Wed", type: "Home tip or Just Sold", ideas: [
+    "Just Sold: photo of the home + one line about the family (with permission)",
+    "One of the 5 first-time buyer mistakes, with a photo of you at a showing",
+    "Closing costs explained in plain words",
+    "What to fix before you list, and what to skip",
+  ] },
+  { day: "Fri", type: "Event or offer", ideas: [
+    "Free homebuyer class: dates + register link (use the Event post type)",
+    "This weekend's open house: address, time and 3 photos",
+    "Free home value check: \"Curious what your home is worth? Message me\"",
+    "Down payment assistance programs in Washington: book a free call",
+  ] },
+];
+
+function weekKey() {
+  const d = new Date(todayStr() + "T12:00:00");
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); // back to Monday
+  return d.toLocaleDateString("en-CA");
+}
+
+function weekNumber() {
+  return Math.floor(new Date(weekKey() + "T12:00:00").getTime() / (7 * 86400000));
+}
+
+function reviewUrl() {
+  return state.crm.reviewUrl || DEFAULT_REVIEW_URL;
+}
+
+function reviewMessage(c) {
+  const name = c && c.firstName ? c.firstName : "there";
+  return `Hi ${name}, it's Devin! It was a pleasure working with you. Would you take one minute to leave me a quick review? It really helps other families find me: ${reviewUrl()}`;
+}
+
+function reviewEmail() {
+  return `Subject: A quick favor?\n\nHi ___,\n\nThank you again for trusting me with your move. If you have one minute, a short review on Google or Facebook would mean a lot and helps other families find me:\n\n${reviewUrl()}\n\nThank you!\nDevin Brown\nFrom Start 2 Keys`;
+}
+
+function copyText(text) {
+  if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => prompt("Copy this:", text));
+  else prompt("Copy this:", text);
+}
+
 // ---------- data ----------
 
 function defaultCrm() {
-  return { startDate: "", dailyTarget: 20, contacts: [], touches: [] };
+  return { startDate: "", dailyTarget: 20, contacts: [], touches: [], reviewUrl: "", gbp: {} };
 }
 
 function todayStr(offsetDays = 0) {
@@ -243,6 +300,59 @@ function fubBadge(c) {
   return `<button class="x" data-crm="retry" data-id="${c.id}" title="Send to Follow Up Boss">+ FUB</button>`;
 }
 
+function reviewBadge(c) {
+  if (c.review === "reviewed") return `<span class="pos" title="Left a review">★ Reviewed</span>`;
+  if (c.review === "asked") {
+    return `<span class="muted">Asked ${esc((c.reviewAsked || "").slice(5))}</span>
+      <button class="x" data-crm="reviewed" data-id="${c.id}" title="They left a review">★ Got it</button>`;
+  }
+  return `<button class="x" data-crm="ask-review" data-id="${c.id}" title="Text them your review link">Ask review</button>`;
+}
+
+function renderReviewsAndPosts() {
+  const crm = state.crm;
+  const asked = crm.contacts.filter((c) => c.review === "asked").length;
+  const reviewed = crm.contacts.filter((c) => c.review === "reviewed").length;
+  const toAsk = crm.contacts
+    .filter((c) => !c.review && REVIEW_STAGES.includes(c.stage))
+    .sort((a, b) => REVIEW_STAGES.indexOf(a.stage) - REVIEW_STAGES.indexOf(b.stage))
+    .slice(0, 5);
+  const week = weekKey();
+  const posted = crm.gbp[week] || [];
+  const n = weekNumber();
+
+  return `<div class="grid" style="margin-top:16px">
+    <div class="card">
+      <h3>Reviews</h3>
+      <div class="stats">
+        <div class="stat"><div class="label">Asked</div><div class="value">${asked}</div></div>
+        <div class="stat"><div class="label">Reviews</div><div class="value">${reviewed}</div></div>
+      </div>
+      <p class="muted">Your review page: <a href="${esc(reviewUrl())}" target="_blank" rel="noopener">${esc(reviewUrl().replace(/^https?:\/\//, ""))}</a>
+        · <a href="${esc(reviewUrl())}?print" target="_blank" rel="noopener">Print QR card</a></p>
+      <div class="btn-row">
+        <button data-crm="copy" data-what="text">Copy review text</button>
+        <button data-crm="copy" data-what="email">Copy review email</button>
+      </div>
+      <div class="muted" style="margin-top:8px">Ask next (closed, past clients, then sphere):</div>
+      <ul class="list">${toAsk.map((c) => `<li><span class="grow">${esc(contactName(c))} <span class="muted">${esc(c.stage)}</span></span>
+        <button class="x" data-crm="ask-review" data-id="${c.id}">Ask review</button></li>`).join("") ||
+        `<li class="muted">Add past clients and sphere contacts to see who to ask.</li>`}</ul>
+      <p class="muted">Best times to ask: at closing, at the 1-week check-in, right after someone thanks you, and at open houses with the QR card.</p>
+    </div>
+
+    <div class="card">
+      <h3>Google Business posts</h3>
+      <p class="muted">${posted.filter(Boolean).length} of 3 posted this week · <a href="https://business.google.com/" target="_blank" rel="noopener">Open Google Business Profile</a></p>
+      <ul class="list">${GBP_SLOTS.map((slot, i) => `<li class="${posted[i] ? "done" : ""}">
+        <input type="checkbox" data-crm="gbp" data-i="${i}" ${posted[i] ? "checked" : ""}>
+        <span class="grow"><strong>${slot.day}: ${esc(slot.type)}</strong><br><span>${esc(slot.ideas[n % slot.ideas.length])}</span></span>
+      </li>`).join("")}</ul>
+      <p class="muted">Every post: one real photo, 100–300 words, mention your town, and add a button linking to fromstart2keys.com. Cut posts from your weekly video to save time.</p>
+    </div>
+  </div>`;
+}
+
 function touchButtons(contactId) {
   return TOUCH_TYPES.slice(0, 4)
     .map((t) => `<button data-crm="touch" data-type="${t.id}" ${contactId ? `data-id="${contactId}"` : ""}>${t.label}</button>`)
@@ -280,6 +390,7 @@ function renderCrm() {
         ${c.notes ? `<br><span class="muted">${esc(c.notes)}</span>` : ""}</span>
       <select data-crm="stage" data-id="${c.id}">${CRM_STAGES.map((s) => `<option ${s === c.stage ? "selected" : ""}>${s}</option>`).join("")}</select>
       <input type="date" data-crm="next" data-id="${c.id}" value="${esc(c.nextFollowUp || "")}" title="Next follow-up">
+      ${reviewBadge(c)}
       ${fubBadge(c)}
       <button class="x" data-crm="del" data-id="${c.id}" title="Delete">✕</button>
     </li>`).join("");
@@ -319,6 +430,8 @@ function renderCrm() {
     </div>
   </div>
 
+  ${renderReviewsAndPosts()}
+
   <div class="card" style="margin-top:16px">
     <h3>Add a person</h3>
     <form class="row" data-crm-form="contact">
@@ -347,6 +460,7 @@ function renderCrm() {
     <form class="row" data-crm-form="settings">
       <label class="muted">100-day start <input type="date" name="startDate" value="${esc(crm.startDate)}"></label>
       <label class="muted">Daily target <input type="number" name="dailyTarget" min="1" value="${crm.dailyTarget}"></label>
+      <input name="reviewUrl" type="url" placeholder="Review page link" value="${esc(reviewUrl())}" style="flex-basis:100%">
       <input name="url" type="url" placeholder="Your site's CRM link" value="${esc(fub.url)}" style="flex-basis:100%">
       <input name="passcode" type="password" placeholder="CRM passcode (same as CRM_PASSCODE on Vercel)" value="${esc(fub.passcode)}">
       <button class="primary">Save settings</button>
@@ -378,6 +492,28 @@ crmView.addEventListener("click", (e) => {
       if (c) sendToFub(c);
       return;
     }
+    case "ask-review": {
+      const c = crm.contacts.find((x) => x.id === id);
+      if (!c) return;
+      const msg = reviewMessage(c);
+      copyText(msg);
+      c.review = "asked";
+      c.reviewAsked = todayStr();
+      logTouch("text", id);
+      save();
+      render();
+      if (c.phone) location.href = `sms:${c.phone}?&body=${encodeURIComponent(msg)}`;
+      return;
+    }
+    case "reviewed": {
+      const c = crm.contacts.find((x) => x.id === id);
+      if (c) c.review = "reviewed";
+      break;
+    }
+    case "copy":
+      copyText(btn.dataset.what === "email" ? reviewEmail() : reviewMessage(null));
+      btn.textContent = "Copied!";
+      return;
     case "del":
       if (!confirm("Delete this contact from the Command Center? (It stays in Follow Up Boss.)")) return;
       crm.contacts = crm.contacts.filter((x) => x.id !== id);
@@ -392,6 +528,15 @@ crmView.addEventListener("click", (e) => {
 crmView.addEventListener("change", (e) => {
   if (currentTab !== "crm") return;
   const el = e.target;
+  if (el.dataset.crm === "gbp") {
+    const week = weekKey();
+    const posted = state.crm.gbp[week] || [false, false, false];
+    posted[Number(el.dataset.i)] = el.checked;
+    state.crm.gbp[week] = posted;
+    save();
+    render();
+    return;
+  }
   const c = state.crm.contacts.find((x) => x.id === el.dataset.id);
   if (!c) return;
   if (el.dataset.crm === "stage") c.stage = el.value;
@@ -417,6 +562,7 @@ crmView.addEventListener("submit", (e) => {
   if (form.dataset.crmForm === "settings") {
     state.crm.startDate = f.startDate;
     state.crm.dailyTarget = Math.max(1, Number(f.dailyTarget) || 20);
+    state.crm.reviewUrl = f.reviewUrl.trim();
     saveFubSettings({ url: f.url.trim(), passcode: f.passcode });
     save();
     render();
