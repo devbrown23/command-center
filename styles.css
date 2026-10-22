@@ -123,3 +123,15 @@ ul.list li.done .grow { text-decoration: line-through; color: var(--muted); }
 
 textarea { width: 100%; min-height: 120px; resize: vertical; }
 .foot { text-align: center; color: var(--text-on-sea); opacity: 0.7; font-size: 12px; padding: 24px 16px; }
+
+/* Daily 20 CRM */
+.btn-row { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
+.btn-row button { padding: 4px 8px; font-size: 13px; }
+.week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 12px; text-align: center; }
+.day-bar { height: 60px; background: var(--parchment-dark); border: 1px solid var(--line); border-radius: 4px; display: flex; align-items: flex-end; overflow: hidden; }
+.day-bar > div { width: 100%; background: linear-gradient(0deg, var(--straw-red), var(--gold)); }
+#crm-contacts li { flex-wrap: wrap; }
+#crm-contacts select, #crm-contacts input[type=date] { font-size: 13px; padding: 2px 4px; }
+details.card summary { cursor: pointer; font-family: "Pirata One", serif; font-size: 22px; }
+form.row label { display: flex; align-items: center; gap: 6px; }
+form.row input[type=checkbox] { flex: none; }

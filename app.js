@@ -78,6 +78,7 @@ function load() {
   for (const biz of BUSINESSES) {
     data[biz.id] = { ...emptyBusiness(biz), ...(data[biz.id] || {}) };
   }
+  data.crm = { ...defaultCrm(), ...(data.crm || {}) };
   return data;
 }
 
@@ -128,7 +129,11 @@ function progressBar(value, goal) {
 // ---------- rendering ----------
 
 function renderTabs() {
-  const tabs = [{ id: "overview", name: "Overview", color: "var(--accent)" }, ...BUSINESSES];
+  const tabs = [
+    { id: "overview", name: "Overview", color: "var(--accent)" },
+    { id: "crm", name: "Daily 20 CRM", color: "#1f6feb" },
+    ...BUSINESSES,
+  ];
   document.getElementById("tabs").innerHTML = tabs
     .map((t) => `<button data-tab="${t.id}" style="--tab:${t.color}" class="${t.id === currentTab ? "active" : ""}">${esc(t.name)}</button>`)
     .join("");
@@ -159,7 +164,8 @@ function renderOverview() {
   }).join("");
 
   const profit = totalIncome - totalExpense;
-  return `<div class="card" style="margin-bottom:16px">
+  return `${renderCrmOverviewCard()}
+    <div class="card" style="margin-bottom:16px">
       <h2>All businesses, ${esc(monthInput.value)}</h2>
       <div class="stats">
         <div class="stat"><div class="label">Total income</div><div class="value">${money(totalIncome)}</div></div>
@@ -271,16 +277,22 @@ function renderBusiness(biz) {
 }
 
 function render() {
-  if (currentTab !== "overview" && !BUSINESSES.some((b) => b.id === currentTab)) currentTab = "overview";
+  if (!["overview", "crm"].includes(currentTab) && !BUSINESSES.some((b) => b.id === currentTab)) currentTab = "overview";
   renderTabs();
   const biz = BUSINESSES.find((b) => b.id === currentTab);
-  document.getElementById("view").innerHTML = biz ? renderBusiness(biz) : renderOverview();
+  const view = document.getElementById("view");
+  if (currentTab === "crm") view.innerHTML = renderCrm();
+  else view.innerHTML = biz ? renderBusiness(biz) : renderOverview();
 }
 
 // ---------- events ----------
 
 function bizState() {
   return state[currentTab];
+}
+
+function onBusinessTab() {
+  return BUSINESSES.some((b) => b.id === currentTab);
 }
 
 document.getElementById("tabs").addEventListener("click", (e) => {
@@ -302,7 +314,7 @@ view.addEventListener("click", (e) => {
     return;
   }
   const btn = e.target.closest("button[data-action]");
-  if (!btn) return;
+  if (!btn || !onBusinessTab()) return;
   const s = bizState();
   const id = btn.dataset.id;
   const lists = { "del-money": "money", "del-todo": "todos", "del-pipeline": "pipeline", "del-link": "links" };
@@ -315,6 +327,7 @@ view.addEventListener("click", (e) => {
 });
 
 view.addEventListener("change", (e) => {
+  if (!onBusinessTab()) return;
   const el = e.target;
   const s = bizState();
   if (el.dataset.action === "toggle") {
@@ -335,6 +348,7 @@ view.addEventListener("change", (e) => {
 });
 
 view.addEventListener("submit", (e) => {
+  if (!onBusinessTab()) return;
   e.preventDefault();
   const form = e.target;
   const f = Object.fromEntries(new FormData(form));
