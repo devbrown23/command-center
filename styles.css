@@ -1,105 +1,174 @@
-/* Grand Line theme: ocean background, wanted-poster parchment cards, straw hat red and gold. */
+/* New World tech theme: night ocean, holographic grid, glass panels, neon edges.
+   Straw hat gold and red stay as the main accents. */
 :root {
-  --sea-top: #0a1f3c;
-  --sea-bottom: #12416b;
-  --parchment: #f4e4c1;
-  --parchment-dark: #e6cf9f;
-  --ink: #3b2412;
-  --muted: #7a5a3a;
-  --line: #c9a970;
-  --gold: #f2c14e;
-  --straw-red: #c1121f;
-  --accent: var(--straw-red);
-  --good: #2e7d32;
-  --bad: #b3261e;
-  --text-on-sea: #f5ecd7;
+  --deep: #030712;
+  --sea: #061a33;
+  --panel: rgba(10, 22, 44, 0.62);
+  --panel-solid: #0b1a33;
+  --text: #e6f1ff;
+  --muted: #8fa7c4;
+  --line: rgba(94, 234, 255, 0.18);
+  --cyan: #5eeaff;
+  --pink: #ff4fd8;
+  --gold: #ffd23f;
+  --straw-red: #ff2e4d;
+  --accent: var(--cyan);
+  --good: #3dffa8;
+  --bad: #ff5c7a;
+  --glow: 0 0 12px rgba(94, 234, 255, 0.35);
 }
 
 * { box-sizing: border-box; }
-html { background: var(--sea-bottom); }
+/* No background on html so the body background fills the whole canvas and the grid layers show through. */
 body {
   margin: 0;
   min-height: 100vh;
-  font: 15px/1.45 "Nunito", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  color: var(--ink);
+  font: 15px/1.5 "Exo 2", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--text);
   background:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='24' viewBox='0 0 120 24'%3E%3Cpath d='M0 12 Q15 0 30 12 T60 12 T90 12 T120 12' fill='none' stroke='%23ffffff' stroke-opacity='0.06' stroke-width='2'/%3E%3C/svg%3E") repeat,
-    linear-gradient(180deg, var(--sea-top), var(--sea-bottom) 900px, var(--sea-bottom));
+    radial-gradient(circle at 12% 8%, rgba(94, 234, 255, 0.18), transparent 40%),
+    radial-gradient(circle at 88% 85%, rgba(255, 79, 216, 0.16), transparent 45%),
+    radial-gradient(circle at 70% 10%, rgba(255, 210, 63, 0.08), transparent 35%),
+    linear-gradient(180deg, var(--deep), var(--sea) 70%, #082447);
+  background-attachment: fixed;
 }
-a { color: var(--straw-red); font-weight: 600; }
-h1, h2, h3, .tabs button {
-  font-family: "Pirata One", "Nunito", serif;
-  font-weight: 400;
-  letter-spacing: 0.5px;
+
+/* Holographic grid that slowly drifts, plus glowing wave lines along the bottom. */
+body::before, body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
 }
-h1 { font-size: 40px; margin: 0; color: var(--gold); text-shadow: 2px 2px 0 #000; line-height: 1; }
-h2 { font-size: 26px; margin: 0 0 12px; }
-h3 { font-size: 22px; margin: 0 0 10px; }
+body::before {
+  background-image:
+    linear-gradient(rgba(94, 234, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(94, 234, 255, 0.06) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: linear-gradient(180deg, transparent, #000 30%, #000 70%, transparent);
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 30%, #000 70%, transparent);
+  animation: drift 30s linear infinite;
+}
+body::after {
+  top: auto;
+  height: 160px;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='40' viewBox='0 0 240 40'%3E%3Cpath d='M0 20 Q30 4 60 20 T120 20 T180 20 T240 20' fill='none' stroke='%235eeaff' stroke-opacity='0.35' stroke-width='1.5'/%3E%3C/svg%3E") repeat-x 0 30px,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='40' viewBox='0 0 180 40'%3E%3Cpath d='M0 20 Q22 6 45 20 T90 20 T135 20 T180 20' fill='none' stroke='%23ff4fd8' stroke-opacity='0.25' stroke-width='1.5'/%3E%3C/svg%3E") repeat-x 0 80px;
+  animation: waves 18s linear infinite;
+}
+@keyframes drift { to { background-position: 48px 48px, 48px 48px; } }
+@keyframes waves { to { background-position: 240px 30px, -180px 80px; } }
+@media (prefers-reduced-motion: reduce) {
+  body::before, body::after { animation: none; }
+}
+
+a { color: var(--cyan); font-weight: 600; }
+h1, h2, h3, .tabs button, .wanted, details.card summary {
+  font-family: "Orbitron", "Exo 2", sans-serif;
+  letter-spacing: 1px;
+}
+h1 {
+  font-size: 34px; margin: 0; line-height: 1.1; font-weight: 800;
+  color: var(--gold);
+  text-shadow: 0 0 18px rgba(255, 210, 63, 0.55);
+}
+h2 { font-size: 20px; margin: 0 0 12px; font-weight: 700; }
+h3 { font-size: 16px; margin: 0 0 10px; font-weight: 700; color: var(--cyan); text-transform: uppercase; }
 
 .top {
   display: flex; flex-wrap: wrap; gap: 12px;
   align-items: center; justify-content: space-between;
   padding: 20px 16px 12px;
-  color: var(--text-on-sea);
 }
-.tagline { color: var(--text-on-sea); opacity: 0.8; font-size: 14px; margin-top: 4px; }
+.tagline { color: var(--muted); font-size: 13px; margin-top: 6px; letter-spacing: 2px; text-transform: uppercase; }
 .top-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 
 .tabs {
   display: flex; gap: 4px; overflow-x: auto;
-  padding: 0 16px; border-bottom: 2px solid rgba(242, 193, 78, 0.3);
+  padding: 0 16px; border-bottom: 1px solid var(--line);
 }
 .tabs button {
-  background: none; border: 0; border-bottom: 4px solid transparent;
-  padding: 10px 14px; color: var(--text-on-sea); opacity: 0.75;
-  font-size: 22px; cursor: pointer; white-space: nowrap;
+  background: none; border: 0; border-bottom: 3px solid transparent;
+  padding: 12px 14px; color: var(--muted);
+  font-size: 13px; font-weight: 600; text-transform: uppercase;
+  cursor: pointer; white-space: nowrap;
 }
-.tabs button:hover { opacity: 1; }
-.tabs button.active { opacity: 1; color: var(--gold); border-color: var(--tab, var(--gold)); }
+.tabs button:hover { color: var(--text); }
+.tabs button.active {
+  color: var(--text);
+  border-color: var(--tab, var(--cyan));
+  text-shadow: 0 0 10px var(--tab, var(--cyan));
+}
 
 main { padding: 16px; max-width: 1200px; margin: 0 auto; }
 .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
 
-/* Cards look like wanted posters. */
+/* Glass panels with neon edges. */
 .card {
-  background: radial-gradient(ellipse at center, var(--parchment) 60%, var(--parchment-dark) 100%);
-  border: 3px solid var(--ink);
-  border-radius: 4px;
+  position: relative;
+  background: var(--panel);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--line);
+  border-radius: 14px;
   padding: 18px;
   min-width: 0;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
-.card.biz { border-top: 8px solid var(--tab); cursor: pointer; transition: transform 0.15s; }
-.card.biz:hover { transform: translateY(-3px) rotate(-0.4deg); }
+.card.biz {
+  border-top: 2px solid var(--tab);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), 0 -2px 18px -6px var(--tab);
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.card.biz:hover { transform: translateY(-3px); box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5), 0 0 22px -4px var(--tab); }
 .wanted {
-  font-family: "Pirata One", serif; font-size: 16px; letter-spacing: 4px;
-  text-align: center; color: var(--muted); margin: -6px 0 4px;
+  display: inline-block; font-size: 10px; letter-spacing: 4px; font-weight: 700;
+  color: var(--gold); border: 1px solid rgba(255, 210, 63, 0.5); border-radius: 4px;
+  padding: 2px 8px; margin: -4px 0 8px; text-shadow: 0 0 8px rgba(255, 210, 63, 0.6);
 }
 
-.stats { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 8px; }
-.stat .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
-.stat .value { font-size: 22px; font-weight: 800; }
-.pos { color: var(--good); }
+.stats { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 8px; }
+.stat .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; }
+.stat .value { font-family: "Orbitron", sans-serif; font-size: 20px; font-weight: 700; }
+.pos { color: var(--good); text-shadow: 0 0 10px rgba(61, 255, 168, 0.35); }
 .neg { color: var(--bad); }
 
-.bar { height: 10px; background: var(--parchment-dark); border: 1px solid var(--line); border-radius: 5px; overflow: hidden; }
-.bar > div { height: 100%; background: linear-gradient(90deg, var(--straw-red), var(--gold)); }
+.bar { height: 8px; background: rgba(255, 255, 255, 0.06); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.bar > div {
+  height: 100%;
+  background: linear-gradient(90deg, var(--cyan), var(--pink), var(--gold));
+  box-shadow: 0 0 12px rgba(255, 79, 216, 0.6);
+}
 
 input, select, textarea, button {
-  font: inherit; color: var(--ink); background: #fbf4e2;
-  border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px;
+  font: inherit; color: var(--text); background: rgba(3, 7, 18, 0.55);
+  border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px;
 }
-button { cursor: pointer; }
-button.primary { background: var(--straw-red); border-color: #7f0b14; color: #fff; font-weight: 700; }
-button.primary:hover { filter: brightness(1.1); }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--cyan); box-shadow: var(--glow); }
+input::placeholder, textarea::placeholder { color: #5f7896; }
+select option { background: var(--panel-solid); }
+input[type=date]::-webkit-calendar-picker-indicator { filter: invert(0.8); }
+button { cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s; }
+button:hover { border-color: var(--cyan); box-shadow: var(--glow); }
+button.primary {
+  background: linear-gradient(135deg, var(--straw-red), #ff6a3d);
+  border-color: transparent; color: #fff; font-weight: 700;
+  box-shadow: 0 0 14px rgba(255, 46, 77, 0.45);
+}
+button.primary:hover { filter: brightness(1.1); box-shadow: 0 0 20px rgba(255, 46, 77, 0.7); }
 .ghost, .btn-file {
-  background: rgba(0, 0, 0, 0.25); color: var(--gold);
-  border: 1px solid var(--gold); border-radius: 6px; padding: 6px 10px; cursor: pointer;
+  background: rgba(3, 7, 18, 0.5); color: var(--gold);
+  border: 1px solid rgba(255, 210, 63, 0.5); border-radius: 8px; padding: 7px 12px; cursor: pointer;
 }
-.top label { color: var(--text-on-sea); }
+.ghost:hover, .btn-file:hover { box-shadow: 0 0 12px rgba(255, 210, 63, 0.4); }
+.top label { color: var(--muted); }
 .top label.btn-file { color: var(--gold); }
-.x { border: 0; background: none; color: var(--muted); padding: 2px 6px; }
-.x:hover { color: var(--bad); }
+.x { border: 0; background: none; color: var(--muted); padding: 2px 6px; box-shadow: none; }
+.x:hover { color: var(--cyan); box-shadow: none; }
+.x.neg:hover { color: var(--bad); }
 
 form.row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 form.row input, form.row select { flex: 1 1 110px; min-width: 0; }
@@ -107,31 +176,32 @@ form.row input, form.row select { flex: 1 1 110px; min-width: 0; }
 ul.list { list-style: none; margin: 0; padding: 0; }
 ul.list li {
   display: flex; gap: 8px; align-items: center;
-  padding: 6px 0; border-bottom: 1px dashed var(--line);
+  padding: 7px 0; border-bottom: 1px solid var(--line);
 }
 ul.list li .grow { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 ul.list li.done .grow { text-decoration: line-through; color: var(--muted); }
 .muted { color: var(--muted); font-size: 13px; }
+input[type=checkbox] { accent-color: var(--cyan); }
 
 .kanban { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
-.col { background: rgba(122, 90, 58, 0.12); border: 1px dashed var(--line); border-radius: 6px; padding: 8px; }
-.col h4 { margin: 0 0 6px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
-.item { background: #fbf4e2; border: 1px solid var(--line); border-radius: 4px; padding: 8px; margin-bottom: 6px; }
+.col { background: rgba(3, 7, 18, 0.35); border: 1px solid var(--line); border-radius: 10px; padding: 8px; }
+.col h4 { margin: 0 0 6px; font-size: 11px; color: var(--cyan); text-transform: uppercase; letter-spacing: 1.5px; }
+.item { background: rgba(94, 234, 255, 0.05); border: 1px solid var(--line); border-radius: 8px; padding: 8px; margin-bottom: 6px; }
 .item .title { font-weight: 700; overflow-wrap: anywhere; }
 .item .meta { display: flex; gap: 4px; align-items: center; margin-top: 6px; }
 .item select { flex: 1; padding: 2px 4px; font-size: 13px; }
 
 textarea { width: 100%; min-height: 120px; resize: vertical; }
-.foot { text-align: center; color: var(--text-on-sea); opacity: 0.7; font-size: 12px; padding: 24px 16px; }
+.foot { text-align: center; color: var(--muted); font-size: 12px; padding: 24px 16px 80px; }
 
 /* Daily 20 CRM */
 .btn-row { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
-.btn-row button { padding: 4px 8px; font-size: 13px; }
+.btn-row button { padding: 4px 10px; font-size: 13px; }
 .week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 12px; text-align: center; }
-.day-bar { height: 60px; background: var(--parchment-dark); border: 1px solid var(--line); border-radius: 4px; display: flex; align-items: flex-end; overflow: hidden; }
-.day-bar > div { width: 100%; background: linear-gradient(0deg, var(--straw-red), var(--gold)); }
+.day-bar { height: 60px; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--line); border-radius: 6px; display: flex; align-items: flex-end; overflow: hidden; }
+.day-bar > div { width: 100%; background: linear-gradient(0deg, var(--pink), var(--cyan)); box-shadow: 0 0 10px rgba(94, 234, 255, 0.5); }
 #crm-contacts li { flex-wrap: wrap; }
 #crm-contacts select, #crm-contacts input[type=date] { font-size: 13px; padding: 2px 4px; }
-details.card summary { cursor: pointer; font-family: "Pirata One", serif; font-size: 22px; }
+details.card summary { cursor: pointer; font-size: 14px; font-weight: 700; color: var(--cyan); text-transform: uppercase; }
 form.row label { display: flex; align-items: center; gap: 6px; }
 form.row input[type=checkbox] { flex: none; }
