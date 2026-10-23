@@ -53,7 +53,26 @@ const BUSINESSES = [
     stages: ["Booked", "In transit", "Delivered", "Invoiced", "Paid"],
     links: [],
   },
+  {
+    id: "gaming",
+    name: "Gaming",
+    subtitle: "TikTok & YouTube",
+    color: "#ff4fd8",
+    pipelineName: "Video ideas",
+    itemLabel: "Video idea",
+    noAmount: true,
+    tracksVideos: true,
+    stages: ["Idea", "Recorded", "Edited", "Posted"],
+    links: [
+      { label: "TikTok Studio", url: "https://www.tiktok.com/tiktokstudio" },
+      { label: "YouTube Studio", url: "https://studio.youtube.com" },
+    ],
+  },
 ];
+
+// Choices for the Gaming tab's video tracker.
+const GAMES = ["Call of Duty", "GTA 6", "Other"];
+const PLATFORMS = ["TikTok", "YouTube Shorts", "YouTube", "Instagram", "Twitch"];
 
 // ---------- state ----------
 
@@ -63,6 +82,7 @@ function emptyBusiness(biz) {
     money: [],     // { id, date, type: "income"|"expense", amount, note }
     todos: [],     // { id, text, done }
     pipeline: [],  // { id, title, amount, stage }
+    videos: [],    // { id, date, title, game, platform, url, views, likes } (Gaming tab)
     links: biz.links.map((l) => ({ id: uid(), ...l })),
     notes: "",
   };
@@ -120,6 +140,16 @@ function monthTotals(bizId) {
   return { income, expense, profit: income - expense };
 }
 
+function number(n) {
+  return Number(n || 0).toLocaleString();
+}
+
+function videoTotals(videos) {
+  const views = videos.reduce((sum, v) => sum + (v.views || 0), 0);
+  const best = videos.reduce((top, v) => (!top || (v.views || 0) > (top.views || 0) ? v : top), null);
+  return { views, best, avg: videos.length ? Math.round(views / videos.length) : 0 };
+}
+
 function progressBar(value, goal) {
   const pct = goal > 0 ? Math.min(100, Math.max(0, (value / goal) * 100)) : 0;
   return `<div class="bar"><div style="width:${pct}%"></div></div>
@@ -157,6 +187,7 @@ function renderOverview() {
         <div class="stat"><div class="label">Profit</div><div class="value ${t.profit >= 0 ? "pos" : "neg"}">${money(t.profit)}</div></div>
       </div>
       ${progressBar(t.profit, s.goal)}
+      ${biz.tracksVideos ? `<p class="muted">Views: ${number(videoTotals(s.videos).views)} across ${s.videos.length} videos</p>` : ""}
       <p class="muted">${esc(biz.pipelineName)}: ${esc(counts)}</p>
       <div class="muted">Next up:</div>
       <ul class="list">${todos.slice(0, 3).map((x) => `<li><span class="grow">${esc(x.text)}</span></li>`).join("") || `<li class="muted">Nothing on the list</li>`}</ul>
@@ -189,7 +220,7 @@ function renderBusiness(biz) {
     return `<div class="col"><h4>${esc(stage)} (${items.length})</h4>
       ${items.map((p) => `<div class="item">
         <div class="title">${esc(p.title)}</div>
-        ${p.amount ? `<div class="muted">${money(p.amount)}</div>` : ""}
+        ${p.amount && !biz.noAmount ? `<div class="muted">${money(p.amount)}</div>` : ""}
         <div class="meta">
           <select data-action="move" data-id="${p.id}">
             ${biz.stages.map((st) => `<option ${st === p.stage ? "selected" : ""}>${esc(st)}</option>`).join("")}
@@ -259,12 +290,14 @@ function renderBusiness(biz) {
     </div>
   </div>
 
+  ${biz.tracksVideos ? renderVideos(s, today) : ""}
+
   <div class="card" style="margin-top:16px">
     <h3>${esc(biz.pipelineName)}</h3>
     <div class="kanban">${columns}</div>
     <form class="row" data-form="pipeline">
       <input name="title" placeholder="${esc(biz.itemLabel)}" required>
-      <input name="amount" type="number" min="0" step="any" placeholder="${esc(biz.amountLabel)}">
+      ${biz.noAmount ? "" : `<input name="amount" type="number" min="0" step="any" placeholder="${esc(biz.amountLabel)}">`}
       <select name="stage">${biz.stages.map((st) => `<option>${esc(st)}</option>`).join("")}</select>
       <button class="primary">Add</button>
     </form>
@@ -273,6 +306,47 @@ function renderBusiness(biz) {
   <div class="card" style="margin-top:16px">
     <h3>Notes</h3>
     <textarea data-action="notes" placeholder="Ideas, contacts, plans...">${esc(s.notes)}</textarea>
+  </div>`;
+}
+
+// Video tracker: log each posted video and update its views as they grow.
+function renderVideos(s, today) {
+  const { views, best, avg } = videoTotals(s.videos);
+  const breakdown = (key, options) => options
+    .map((o) => [o, s.videos.filter((v) => v[key] === o)])
+    .filter(([, list]) => list.length)
+    .map(([o, list]) => `${esc(o)}: ${number(videoTotals(list).views)}`)
+    .join(" · ");
+  const rows = [...s.videos]
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .map((v) => `<li>
+      <span class="grow">${v.url ? `<a href="${esc(v.url)}" target="_blank" rel="noopener">${esc(v.title)}</a>` : `<strong>${esc(v.title)}</strong>`}
+        <br><span class="muted">${esc(v.date)} · ${esc(v.game)} · ${esc(v.platform)}</span></span>
+      <label class="muted">Views <input type="number" min="0" data-action="views" data-id="${v.id}" value="${v.views || 0}" style="width:90px"></label>
+      <label class="muted">Likes <input type="number" min="0" data-action="likes" data-id="${v.id}" value="${v.likes || 0}" style="width:70px"></label>
+      <button class="x" data-action="del-video" data-id="${v.id}" title="Delete">✕</button>
+    </li>`).join("");
+
+  return `<div class="card" style="margin-top:16px">
+    <h3>Videos</h3>
+    <div class="stats">
+      <div class="stat"><div class="label">Total views</div><div class="value">${number(views)}</div></div>
+      <div class="stat"><div class="label">Videos</div><div class="value">${s.videos.length}</div></div>
+      <div class="stat"><div class="label">Avg views</div><div class="value">${number(avg)}</div></div>
+    </div>
+    ${best ? `<p class="muted">Top video: <strong>${esc(best.title)}</strong> (${number(best.views)} views, ${esc(best.platform)})</p>` : ""}
+    ${s.videos.length ? `<p class="muted">By platform: ${breakdown("platform", PLATFORMS)}<br>By game: ${breakdown("game", GAMES)}</p>` : ""}
+    <ul class="list">${rows || `<li class="muted">No videos yet. Add your first post below.</li>`}</ul>
+    <form class="row" data-form="video">
+      <input type="date" name="date" value="${today}" required>
+      <input name="title" placeholder="Video title" required>
+      <select name="game">${GAMES.map((g) => `<option>${g}</option>`).join("")}</select>
+      <select name="platform">${PLATFORMS.map((p) => `<option>${p}</option>`).join("")}</select>
+      <input name="url" type="url" placeholder="Link (optional)">
+      <input name="views" type="number" min="0" placeholder="Views">
+      <button class="primary">Add video</button>
+    </form>
+    <p class="muted">Update views at 24 hours and again at 7 days to see what's working.</p>
   </div>`;
 }
 
@@ -317,7 +391,7 @@ view.addEventListener("click", (e) => {
   if (!btn || !onBusinessTab()) return;
   const s = bizState();
   const id = btn.dataset.id;
-  const lists = { "del-money": "money", "del-todo": "todos", "del-pipeline": "pipeline", "del-link": "links" };
+  const lists = { "del-money": "money", "del-todo": "todos", "del-pipeline": "pipeline", "del-link": "links", "del-video": "videos" };
   const key = lists[btn.dataset.action];
   if (key && confirm("Delete this?")) {
     s[key] = s[key].filter((x) => x.id !== id);
@@ -336,6 +410,9 @@ view.addEventListener("change", (e) => {
   } else if (el.dataset.action === "move") {
     const item = s.pipeline.find((x) => x.id === el.dataset.id);
     item.stage = el.value;
+  } else if (el.dataset.action === "views" || el.dataset.action === "likes") {
+    const video = s.videos.find((x) => x.id === el.dataset.id);
+    video[el.dataset.action] = Math.max(0, Number(el.value) || 0);
   } else if (el.dataset.action === "notes") {
     s.notes = el.value;
     save();
@@ -368,6 +445,12 @@ view.addEventListener("submit", (e) => {
       break;
     case "pipeline":
       s.pipeline.push({ id: uid(), title: f.title.trim(), amount: Number(f.amount) || 0, stage: f.stage });
+      break;
+    case "video":
+      s.videos.push({
+        id: uid(), date: f.date, title: f.title.trim(), game: f.game, platform: f.platform,
+        url: f.url.trim(), views: Number(f.views) || 0, likes: 0,
+      });
       break;
   }
   save();
