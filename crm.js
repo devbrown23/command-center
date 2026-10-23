@@ -2,7 +2,7 @@
 // Loaded before app.js. Uses state, save, render, uid and esc from app.js at runtime.
 
 const FUB_SETTINGS_KEY = "command-center-fub"; // kept out of the backup file on purpose
-const DEFAULT_FUB_URL = "https://www.fromstart2keys.com/api/crm-contact";
+const DEFAULT_FUB_URL = "https://fromstart2keys.com/api/crm-contact"; // no www: the site serves from the bare domain, and a redirect would break the request
 const DEFAULT_REVIEW_URL = "https://www.fromstart2keys.com/review.html";
 const REVIEW_STAGES = ["Closed", "Past Client", "Sphere"]; // who to ask first
 
