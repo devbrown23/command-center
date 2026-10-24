@@ -15,6 +15,7 @@ const TOUCH_TYPES = [
   { id: "person", label: "In person" },
   { id: "note", label: "Note card" },
 ];
+const PLAY_LABELS = { "zestimate-text": "Zestimate texts", "video-cma": "Video CMAs", "market-text": "Market texts" };
 
 // Days until the next follow-up after a touch, by stage.
 const FOLLOW_UP_DAYS = { "Hot Prospect": 2, "Active Client": 3, "Lead": 7, "Under Contract": 7, "Sphere": 30, "Closed": 30, "Past Client": 60 };
@@ -25,6 +26,30 @@ const PHASES = [
   { from: 8, to: 90, name: "Full sail", text: "Daily 20, six days a week. Prospect before you do anything else. Every new name goes into the CRM the same day." },
   { from: 91, to: 100, name: "Count the treasure", text: "Review your numbers. Ask every closed client for a review and a referral. Pick what worked and plan the next 100 days." },
 ];
+
+// 100K in 100 Days playbook: one sphere-of-influence strategy per stretch of days,
+// plus circle prospecting calls every week. Scripts are written in our own words.
+const PLAYBOOK = [
+  {
+    id: "zestimate-text", from: 1, to: 33, perDay: 3, goal: 100,
+    name: "Zestimate text",
+    how: "Look up a homeowner you know on Zillow, screenshot their Zestimate, and text it to them with a question. People love talking about what their home is worth.",
+    script: "Hi [name]! I was looking at a few homes near you on Zillow today and peeked at your Zestimate: about $___ (screenshot attached). I have my own opinion on it, but I'm curious what you think?",
+  },
+  {
+    id: "video-cma", from: 34, to: 67, perDay: 2, goal: 60,
+    name: "Unsolicited video CMA",
+    how: "Record a 2–3 minute screen video (Loom or BombBomb): open on their house in Google Earth, walk through nearby active, pending and sold homes, give a value range and a rough seller net sheet. Title it \"[address] Valuation Update\" and end by inviting questions.",
+    script: "Hi [name], I put together a quick video on what homes near you are selling for and where I think your home's value sits right now. No pressure at all, just thought you'd want to know. Any questions, I'm here!",
+  },
+  {
+    id: "market-text", from: 68, to: 100, perDay: 5, goal: 100,
+    name: "1-to-1 market update text",
+    how: "Whenever you see a recent sale in the MLS, text someone in your sphere who lives near it. Short, personal and relevant.",
+    script: "Hi [name], I was in the MLS today and saw [address] just sold in your neighborhood. Did you catch the final price?",
+  },
+];
+const WEEKLY_CALL_GOAL = 250;
 
 // Weekly rhythm. Index matches Date.getDay() (0 = Sunday).
 const WEEK_PLAN = [
@@ -310,6 +335,43 @@ function reviewBadge(c) {
     <button class="x" data-crm="mark-asked" data-id="${c.id}" title="You already sent the link another way">Already asked</button>`;
 }
 
+function renderPlaybook() {
+  const day = challengeDay();
+  const play = PLAYBOOK.find((p) => day >= p.from && day <= p.to) || PLAYBOOK[0];
+  const sent = state.crm.touches.filter((t) => t.type === play.id);
+  const today = sent.filter((t) => t.date === todayStr()).length;
+  const week = weekKey();
+  const calls = state.crm.touches.filter((t) => t.type === "call" && t.date >= week).length;
+  const pct = (n, goal) => Math.min(100, (n / goal) * 100);
+  return `<div class="grid" style="margin-top:16px">
+    <div class="card">
+      <h3>100K Playbook: ${esc(play.name)}</h3>
+      <p class="muted">${day > 0 && day <= 100 ? `Days ${play.from}–${play.to}` : `Starts on Day ${play.from}. Set your start date in CRM settings.`} · ${play.perDay} a day · goal ${play.goal}</p>
+      <div class="stats">
+        <div class="stat"><div class="label">Today</div><div class="value">${today} / ${play.perDay}</div></div>
+        <div class="stat"><div class="label">Total</div><div class="value">${sent.length} / ${play.goal}</div></div>
+      </div>
+      <div class="bar"><div style="width:${pct(sent.length, play.goal)}%"></div></div>
+      <p class="muted" style="margin-top:10px">${esc(play.how)}</p>
+      <p class="muted"><strong>Script:</strong> ${esc(play.script)}</p>
+      <div class="btn-row">
+        <button class="primary" data-crm="touch" data-type="${play.id}">+1 sent</button>
+        <button data-crm="copy-play" data-text="${esc(play.script)}">Copy script</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Circle prospecting</h3>
+      <div class="stats">
+        <div class="stat"><div class="label">Calls this week</div><div class="value">${calls} / ${WEEKLY_CALL_GOAL}</div></div>
+      </div>
+      <div class="bar"><div style="width:${pct(calls, WEEKLY_CALL_GOAL)}%"></div></div>
+      <p class="muted" style="margin-top:10px">About 50 calls a weekday. Every call you log with the <strong>Call</strong> button counts here. Rotate three openers: a market update, a new listing nearby, or a home that just sold nearby. Start with owners who've been in their homes 5+ years.</p>
+      <p class="muted"><strong>Just-sold opener:</strong> "Hi, it's Devin with From Start 2 Keys. A home near you on [street] just sold, and I'm letting neighbors know what it went for. Have you thought about what that means for your home?"</p>
+    </div>
+  </div>`;
+}
+
 function renderReviewsAndPosts() {
   const crm = state.crm;
   const asked = crm.contacts.filter((c) => c.review === "asked").length;
@@ -379,7 +441,11 @@ function renderCrm() {
   }).join("");
 
   const todayTouches = crm.touches.filter((t) => t.date === today);
-  const byType = [{ id: "new", label: "New people" }, ...TOUCH_TYPES]
+  // Playbook types only show once you've logged one today.
+  const playTypes = Object.entries(PLAY_LABELS)
+    .map(([id, label]) => ({ id, label }))
+    .filter((t) => todayTouches.some((x) => x.type === t.id));
+  const byType = [{ id: "new", label: "New people" }, ...TOUCH_TYPES, ...playTypes]
     .map((t) => `${t.label}: ${todayTouches.filter((x) => x.type === t.id).length}`)
     .join(" · ");
 
@@ -430,6 +496,8 @@ function renderCrm() {
       </li>`).join("") || `<li class="muted">Nobody due. Add new people below.</li>`}</ul>
     </div>
   </div>
+
+  ${renderPlaybook()}
 
   ${renderReviewsAndPosts()}
 
@@ -483,6 +551,10 @@ crmView.addEventListener("click", (e) => {
   const crm = state.crm;
   const id = btn.dataset.id;
   switch (btn.dataset.crm) {
+    case "copy-play":
+      copyText(btn.dataset.text);
+      btn.textContent = "Copied!";
+      return;
     case "touch":
       logTouch(btn.dataset.type, id);
       break;
