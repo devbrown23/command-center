@@ -13,7 +13,9 @@ const BUSINESSES = [
     pipelineName: "Clients",
     itemLabel: "Client name",
     amountLabel: "Price / commission",
-    stages: ["Lead", "Pre-approval", "Showing", "Under contract", "Closed"],
+    // Buyers sign a written agreement before touring (2024 NAR settlement).
+    stages: ["Lead", "Consultation", "Buyer agreement", "Pre-approval", "Showing", "Under contract", "Closed"],
+    plan2026: true,
     links: [
       { label: "Website code (GitHub)", url: "https://github.com/devbrown23/fromstart2keys" },
     ],
@@ -320,6 +322,8 @@ function renderBusiness(biz) {
       </form>
     </div>
   </div>
+
+  ${biz.plan2026 ? renderPlan2026(s) : ""}
 
   ${biz.tracksVideos ? renderVideos(biz, s, today) : ""}
 

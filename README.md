@@ -2,7 +2,7 @@
 
 One page to run all my businesses:
 
-- **From Start 2 Keys**: real estate clients
+- **From Start 2 Keys**: real estate clients, plus the 2026 plan ($100K tracker, weekly scorecard, close-my-buyers checklist, homebuyer class funnel, review goal)
 - **Dropshipping**: products
 - **Cards**: eBay card inventory
 - **Vet Bros Trucking**: loads
