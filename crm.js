@@ -96,6 +96,7 @@ const WEEK_PLAN = [
   {
     theme: "Content & social",
     steps: [
+      "Send this week's value email to your whole database (Weekly email card)",
       "Post this week's video and reply to every comment",
       "DM 10 people who liked, commented or watched",
       "Text 5 sphere contacts the video: \"Thought you'd find this useful\"",
@@ -105,6 +106,7 @@ const WEEK_PLAN = [
   {
     theme: "Homebuyer class & partners",
     steps: [
+      "Call everyone who opened Thursday's email, using the OFQ guide",
       "Text 10 class registrants or past attendees",
       "Call 3 lenders or referral partners",
       "Write 5 handwritten notes",
@@ -177,7 +179,7 @@ function copyText(text) {
 // ---------- data ----------
 
 function defaultCrm() {
-  return { startDate: "", dailyTarget: 20, contacts: [], touches: [], reviewUrl: "", gbp: {} };
+  return { startDate: "", dailyTarget: 20, contacts: [], touches: [], reviewUrl: "", gbp: {}, emails: {}, doubleDips: [] };
 }
 
 function todayStr(offsetDays = 0) {
@@ -367,7 +369,72 @@ function renderPlaybook() {
       </div>
       <div class="bar"><div style="width:${pct(calls, WEEKLY_CALL_GOAL)}%"></div></div>
       <p class="muted" style="margin-top:10px">About 50 calls a weekday. Every call you log with the <strong>Call</strong> button counts here. Rotate three openers: a market update, a new listing nearby, or a home that just sold nearby. Start with owners who've been in their homes 5+ years.</p>
-      <p class="muted"><strong>Just-sold opener:</strong> "Hi, it's Devin with From Start 2 Keys. A home near you on [street] just sold, and I'm letting neighbors know what it went for. Have you thought about what that means for your home?"</p>
+      <details>
+        <summary class="muted"><strong>Three voicemail openers</strong></summary>
+        <p class="muted"><strong>Just sold:</strong> "Hi, it's Devin with From Start 2 Keys. A home near you on [street] just sold, and it went for [over asking / a strong price]. When that happens, a few neighbors usually start thinking about a move. If you know anyone curious about selling, call or text me at [number]."</p>
+        <p class="muted"><strong>Market update:</strong> "Hi, it's Devin with From Start 2 Keys. Home values in [neighborhood] have been moving faster than most of [city], and some owners are starting to look at their options. Even if you're not selling, I'm happy to send you a real estimate of your home's value, much more accurate than an online one. Call or text me at [number]."</p>
+        <p class="muted"><strong>Neighbor appointment:</strong> "Hi, it's Devin, a local agent with From Start 2 Keys. I'm meeting with one of your neighbors on [day] to talk about selling their home, so I'm offering free home equity updates to anyone nearby while I'm in the area. Would that be helpful for you?"</p>
+      </details>
+    </div>
+  </div>`;
+}
+
+// Weekly email (Thursday send, Friday calls to openers) and the twice-a-month Double Dip.
+function renderEmailAndDoubleDip() {
+  const crm = state.crm;
+  const week = weekKey();
+  const email = crm.emails[week] || { sent: false, openRate: "" };
+  const month = todayStr().slice(0, 7);
+  const dips = crm.doubleDips.filter((d) => d.startsWith(month)).length;
+  const pastRates = Object.entries(crm.emails)
+    .filter(([w, e]) => w !== week && e.openRate !== "" && e.openRate != null)
+    .sort(([a], [b]) => b.localeCompare(a))
+    .slice(0, 4)
+    .map(([w, e]) => `${w.slice(5)}: ${e.openRate}%`)
+    .join(" · ");
+  return `<div class="grid" style="margin-top:16px">
+    <div class="card">
+      <h3>Weekly email</h3>
+      <ul class="list">
+        <li class="${email.sent ? "done" : ""}"><input type="checkbox" data-crm="email-sent" ${email.sent ? "checked" : ""}>
+          <span class="grow"><strong>Thursday:</strong> send a value email to your whole database (buyers, sellers, sphere)</span></li>
+        <li><span class="grow"><strong>Friday:</strong> call everyone who opened it. Most opens happen in the first 24 hours. Log each with the Call button.</span></li>
+        <li><span class="grow"><strong>After each call:</strong> send a short follow-up email confirming what you talked about.</span></li>
+      </ul>
+      <form class="row" data-crm-form="open-rate">
+        <label class="muted">This week's open rate <input type="number" name="openRate" min="0" max="100" step="any" value="${esc(email.openRate)}" style="width:90px"> %</label>
+        <button>Save</button>
+      </form>
+      ${pastRates ? `<p class="muted">Past weeks: ${pastRates}</p>` : ""}
+      <details>
+        <summary class="muted"><strong>OFQ call guide</strong></summary>
+        <ol class="muted">
+          <li><strong>Get permission:</strong> Opening (your name and company), a Fact you both agree on, an easy Question. "Hi, it's Devin with From Start 2 Keys. You opened my email about [topic] yesterday. Are you still thinking about a move, or just keeping an eye on the market?"</li>
+          <li><strong>Explore their situation</strong> before talking about what they want.</li>
+          <li><strong>Ask deeper questions:</strong> how long they've been thinking about it, what's prompting it, when they'd like to move.</li>
+          <li><strong>Big-picture close:</strong> "Based on what you're saying, it sounds like the best next step is…" (meet, send homes, or send a value report).</li>
+          <li><strong>Recap and check:</strong> what's holding them back, and who else is part of the decision.</li>
+          <li><strong>Agree on next steps</strong>, then ask "What else can I help with?"</li>
+          <li><strong>Confirm in writing</strong> by email or text.</li>
+          <li><strong>Set the next touch</strong> on a specific day and time.</li>
+        </ol>
+        <p class="muted">Avoid "just checking in" or "touching base." Open with a reason that helps them.</p>
+      </details>
+    </div>
+
+    <div class="card">
+      <h3>Double Dip</h3>
+      <div class="stats">
+        <div class="stat"><div class="label">This month</div><div class="value">${dips} / 2</div></div>
+      </div>
+      <div class="bar"><div style="width:${Math.min(100, dips * 50)}%"></div></div>
+      <ol class="muted" style="margin-top:10px">
+        <li><strong>Find a hidden gem:</strong> a price cut, an underpriced home, or an off-market or upcoming listing you know about.</li>
+        <li><strong>Post it</strong> on Instagram, Facebook and TikTok. Invite comments and DMs.</li>
+        <li><strong>Email your database</strong> a link to the post.</li>
+        <li><strong>Follow up</strong> with everyone who comments, DMs or opens the email.</li>
+      </ol>
+      <button class="primary" data-crm="double-dip">+1 Double Dip done</button>
     </div>
   </div>`;
 }
@@ -499,6 +566,8 @@ function renderCrm() {
 
   ${renderPlaybook()}
 
+  ${renderEmailAndDoubleDip()}
+
   ${renderReviewsAndPosts()}
 
   <div class="card" style="margin-top:16px">
@@ -551,6 +620,9 @@ crmView.addEventListener("click", (e) => {
   const crm = state.crm;
   const id = btn.dataset.id;
   switch (btn.dataset.crm) {
+    case "double-dip":
+      crm.doubleDips.push(todayStr());
+      break;
     case "copy-play":
       copyText(btn.dataset.text);
       btn.textContent = "Copied!";
@@ -609,6 +681,13 @@ crmView.addEventListener("click", (e) => {
 crmView.addEventListener("change", (e) => {
   if (currentTab !== "crm") return;
   const el = e.target;
+  if (el.dataset.crm === "email-sent") {
+    const week = weekKey();
+    state.crm.emails[week] = { openRate: "", ...(state.crm.emails[week] || {}), sent: el.checked };
+    save();
+    render();
+    return;
+  }
   if (el.dataset.crm === "gbp") {
     const week = weekKey();
     const posted = state.crm.gbp[week] || [false, false, false];
@@ -645,6 +724,13 @@ crmView.addEventListener("submit", (e) => {
     state.crm.dailyTarget = Math.max(1, Number(f.dailyTarget) || 20);
     state.crm.reviewUrl = f.reviewUrl.trim();
     saveFubSettings({ url: f.url.trim(), passcode: f.passcode });
+    save();
+    render();
+    return;
+  }
+  if (form.dataset.crmForm === "open-rate") {
+    const week = weekKey();
+    state.crm.emails[week] = { sent: false, ...(state.crm.emails[week] || {}), openRate: f.openRate === "" ? "" : Number(f.openRate) };
     save();
     render();
     return;
