@@ -54,6 +54,20 @@ const BUSINESSES = [
     links: [],
   },
   {
+    id: "juice",
+    name: "Juice Havan",
+    subtitle: "Cold-pressed juice",
+    color: "#ff8a2a",
+    pipelineName: "Weekend pre-orders",
+    itemLabel: "Customer + order (e.g. Tasha: 2 Sunrise, 1 Moonlight Detox)",
+    amountLabel: "Order total",
+    stages: ["Ordered", "Paid", "Pressed", "Picked up"],
+    links: [
+      { label: "Instagram @juicehavan", url: "https://www.instagram.com/juicehavan/" },
+      { label: "Website code (GitHub)", url: "https://github.com/devbrown23/juice-havan" },
+    ],
+  },
+  {
     id: "gaming",
     name: "Gaming",
     subtitle: "TikTok & YouTube",

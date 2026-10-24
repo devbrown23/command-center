@@ -6,10 +6,12 @@ One page to run all my businesses:
 - **Dropshipping**: products
 - **Cards**: eBay card inventory
 - **Vet Bros Trucking**: loads
+- **Juice Havan**: cold-pressed juice pre-orders
+- **Gaming**: TikTok and YouTube videos and views
 
 The **Daily 20 CRM** tab runs a 100-day prospecting plan: 20 conversations a day, a weekly rhythm with scripts, follow-up reminders and a contact list. New contacts can also be sent to Follow Up Boss through the `/api/crm-contact` function on the fromstart2keys site (set `CRM_PASSCODE` on Vercel and type the same passcode into CRM settings).
 
-Each business has its own tab for monthly income, expenses and a profit goal, a to-do list, a pipeline board, quick links and notes. The Overview tab shows totals across all four businesses.
+Each business has its own tab for monthly income, expenses and a profit goal, a to-do list, a pipeline board, quick links and notes. The Overview tab shows totals across all the businesses.
 
 ## Use it
 
