@@ -84,6 +84,41 @@ const EMAIL_IDEAS = [
     angle: "A big-picture number that sparks curiosity.",
     outline: "Share a current national or local equity figure and how much it has grown. Curious what yours is? Reply with your address and I'll send you a personal equity update.",
   },
+  {
+    subject: "Most homeowners don't realize this...",
+    angle: "Be the person who explains the market.",
+    outline: "Most owners have a mortgage rate below today's rates, so headlines say nobody is selling. But locally, homes are still selling every month (share your number). Supply is tight, and the market is steadier than the news makes it sound. P.S. Thinking of selling before the busy season? Reply and we'll set a time to talk.",
+  },
+  {
+    subject: "Your Zestimate vs. your home's real value",
+    angle: "A short hypothetical that's hard not to answer.",
+    outline: "Keep it to two lines: What if a buyer offered you 10% over your Zestimate? Would you sell this season?",
+  },
+  {
+    subject: "Foreclosures are up, but here's the real story",
+    angle: "A headline-grabbing word, followed by calm context.",
+    outline: "Share a current foreclosure trend, then the context: still far below the 2010 crash. What it means: don't expect prices to crash. Look at the bigger picture. P.S. Buying soon? Reply with your ideal neighborhood and price range and I'll watch for deals.",
+  },
+  {
+    subject: "Hot or cold?",
+    angle: "Ask them to predict the market.",
+    outline: "One line: How hot do you think the market will be this winter? Reply with an emoji 🔥 or 🧊. Can't wait to hear what you think!",
+  },
+  {
+    subject: "Rent vs. sell",
+    angle: "Offer a free report for owners weighing their options.",
+    outline: "Many owners wonder whether to sell or rent out their home. A Rent vs. Sell Analysis shows the yearly rental income they could earn next to their estimated net from selling, based on local trends and the home's condition. Helpful even with no plans to move. Want me to put one together for you?",
+  },
+  {
+    subject: "Crazy not to sell?",
+    angle: "Everyone has a number. Find out theirs.",
+    outline: "If you've thought about selling, you've probably wondered whether now is the time or whether to wait and see. It's a confusing market. Just curious: do you have an \"I'd be crazy not to sell\" price in mind?",
+  },
+  {
+    subject: "Let me guess...",
+    angle: "Show sellers who need to buy next that you have a plan.",
+    outline: "You haven't listed because you haven't found your next home. I hear this all the time. Making an offer that depends on selling first can kill the deal, so many sellers feel stuck. I have a plan for exactly this. Text or call me and we'll map out the right strategy for you.",
+  },
 ];
 
 // Weekly rhythm. Index matches Date.getDay() (0 = Sunday).
@@ -437,9 +472,12 @@ function renderEmailAndDoubleDip() {
         <li><span class="grow"><strong>After each call:</strong> send a short follow-up email confirming what you talked about.</span></li>
       </ul>
       ${(() => {
-        const idea = EMAIL_IDEAS[weekNumber() % EMAIL_IDEAS.length];
+        // Follow the 100 days when a start date is set (week 1 gets idea #1), otherwise the calendar week.
+        const day = challengeDay();
+        const index = day > 0 ? Math.floor((day - 1) / 7) : weekNumber();
+        const idea = EMAIL_IDEAS[index % EMAIL_IDEAS.length];
         return `<div class="muted" style="margin:10px 0">
-          <strong>This week's email idea:</strong> "${esc(idea.subject)}"<br>
+          <strong>This week's email idea (#${(index % EMAIL_IDEAS.length) + 1} of ${EMAIL_IDEAS.length}):</strong> "${esc(idea.subject)}"<br>
           <em>${esc(idea.angle)}</em> ${esc(idea.outline)}<br>
           Use current numbers from your MLS, not old national stats.
           <div class="btn-row"><button data-crm="copy-play" data-text="${esc(idea.subject)}">Copy subject line</button></div>
