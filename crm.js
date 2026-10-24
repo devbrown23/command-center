@@ -51,6 +51,41 @@ const PLAYBOOK = [
 ];
 const WEEKLY_CALL_GOAL = 250;
 
+// Thursday email ideas, one per week in rotation. Outlines are in our own words;
+// always swap in current local numbers from the MLS.
+const EMAIL_IDEAS = [
+  {
+    subject: "Unpopular opinion: it's a good time to buy",
+    angle: "Nudge homeowners who need to buy next.",
+    outline: "A couple of years ago buyers waived inspections and bid way over asking, and many regret rushing. Today buyers have more negotiating power, more choices and more time to decide. Nobody can call the market, but it may be worth a look. P.S. Link a few good-value listings or a recent price drop.",
+  },
+  {
+    subject: "This type of home is sitting on the market",
+    angle: "Tell sellers what buyers want right now.",
+    outline: "Most buyers want move-in ready, not a project. Homes that need work sit longer, and well-priced turnkey homes sell faster. The upgrades that matter most: floors, fresh paint, kitchen and bathrooms. Mention your own staircase and floor project. P.S. Not sure where your home falls? Reply and let's talk.",
+  },
+  {
+    subject: "How much equity do you have right now?",
+    angle: "One interesting number that starts a conversation.",
+    outline: "Share a current equity figure for homeowners in your area, compared with a few years ago. Everyone's situation is different. If it's been over a year since your last equity update, reply \"I'm curious\" with your address and I'll put one together.",
+  },
+  {
+    subject: "Quick poll: what matters most to you?",
+    angle: "An easy reply that turns into a seller conversation.",
+    outline: "As the season changes, what's most important to you? 1) Selling for top dollar 2) Selling quickly and easily 3) Finding a home you love and can afford 4) All of the above. Just reply with a number. P.S. If this market feels stressful, you're not alone. Reply and we'll talk through your situation.",
+  },
+  {
+    subject: "Why are home prices still so high?",
+    angle: "Show you understand their frustration, using real data.",
+    outline: "Share your local median price compared with last year, how inventory has changed, and how fast homes are selling. Low supply plus steady demand keeps prices up. It's a key time to stay informed. P.S. Thinking about buying or selling? Reply and let's solve your specific situation.",
+  },
+  {
+    subject: "Homeowners are sitting on a lot of equity",
+    angle: "A big-picture number that sparks curiosity.",
+    outline: "Share a current national or local equity figure and how much it has grown. Curious what yours is? Reply with your address and I'll send you a personal equity update.",
+  },
+];
+
 // Weekly rhythm. Index matches Date.getDay() (0 = Sunday).
 const WEEK_PLAN = [
   {
@@ -401,6 +436,15 @@ function renderEmailAndDoubleDip() {
         <li><span class="grow"><strong>Friday:</strong> call everyone who opened it. Most opens happen in the first 24 hours. Log each with the Call button.</span></li>
         <li><span class="grow"><strong>After each call:</strong> send a short follow-up email confirming what you talked about.</span></li>
       </ul>
+      ${(() => {
+        const idea = EMAIL_IDEAS[weekNumber() % EMAIL_IDEAS.length];
+        return `<div class="muted" style="margin:10px 0">
+          <strong>This week's email idea:</strong> "${esc(idea.subject)}"<br>
+          <em>${esc(idea.angle)}</em> ${esc(idea.outline)}<br>
+          Use current numbers from your MLS, not old national stats.
+          <div class="btn-row"><button data-crm="copy-play" data-text="${esc(idea.subject)}">Copy subject line</button></div>
+        </div>`;
+      })()}
       <form class="row" data-crm-form="open-rate">
         <label class="muted">This week's open rate <input type="number" name="openRate" min="0" max="100" step="any" value="${esc(email.openRate)}" style="width:90px"> %</label>
         <button>Save</button>
