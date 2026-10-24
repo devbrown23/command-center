@@ -306,7 +306,8 @@ function reviewBadge(c) {
     return `<span class="muted">Asked ${esc((c.reviewAsked || "").slice(5))}</span>
       <button class="x" data-crm="reviewed" data-id="${c.id}" title="They left a review">★ Got it</button>`;
   }
-  return `<button class="x" data-crm="ask-review" data-id="${c.id}" title="Text them your review link">Ask review</button>`;
+  return `<button class="x" data-crm="ask-review" data-id="${c.id}" title="Text them your review link">Ask review</button>
+    <button class="x" data-crm="mark-asked" data-id="${c.id}" title="You already sent the link another way">Already asked</button>`;
 }
 
 function renderReviewsAndPosts() {
@@ -444,6 +445,7 @@ function renderCrm() {
       <label class="muted">Follow up <input name="nextFollowUp" type="date" value="${addDays(today, 2)}"></label>
       <input name="notes" placeholder="Notes (what they want, kids, pets, timeline...)" style="flex-basis:100%">
       <label class="muted"><input type="checkbox" name="talked" checked> I talked to them today (counts toward 20)</label>
+      <label class="muted"><input type="checkbox" name="reviewAsked"> I already sent them the review link</label>
       <label class="muted"><input type="checkbox" name="toFub" ${fub.passcode ? "checked" : ""}> Also add to Follow Up Boss</label>
       <button class="primary">Add person</button>
     </form>
@@ -504,6 +506,13 @@ crmView.addEventListener("click", (e) => {
       render();
       if (c.phone) location.href = `sms:${c.phone}?&body=${encodeURIComponent(msg)}`;
       return;
+    }
+    case "mark-asked": {
+      const c = crm.contacts.find((x) => x.id === id);
+      if (!c) return;
+      c.review = "asked";
+      c.reviewAsked = todayStr();
+      break;
     }
     case "reviewed": {
       const c = crm.contacts.find((x) => x.id === id);
@@ -587,6 +596,8 @@ crmView.addEventListener("submit", (e) => {
     lastContact: "",
     fub: "",
     fubError: "",
+    review: f.reviewAsked ? "asked" : "",
+    reviewAsked: f.reviewAsked ? todayStr() : "",
   };
   state.crm.contacts.push(contact);
   if (f.talked) {
