@@ -118,6 +118,10 @@ const EMAIL_IDEAS = [
     subject: "Let me guess...",
     angle: "Show sellers who need to buy next that you have a plan.",
     outline: "You haven't listed because you haven't found your next home. I hear this all the time. Making an offer that depends on selling first can kill the deal, so many sellers feel stuck. I have a plan for exactly this. Text or call me and we'll map out the right strategy for you.",
+  },  {
+    subject: "Name your price",
+    angle: "A fill-in-the-blank that gets homeowners to name their number. The playbook's top performer.",
+    outline: "One line: \"If I could sell my house for $_____, I'd list it this season.\" Ask them to reply with their number. P.S. Don't be afraid to think big.",
   },
 ];
 
