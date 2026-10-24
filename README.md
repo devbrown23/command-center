@@ -7,6 +7,7 @@ One page to run all my businesses:
 - **Cards**: eBay card inventory
 - **Vet Bros Trucking**: loads
 - **Juice Havan**: cold-pressed juice pre-orders
+- **Video Content**: Canon R8 posts with views, plus paid video shoots
 - **Gaming**: TikTok and YouTube videos and views
 
 The **Daily 20 CRM** tab runs a 100-day prospecting plan: 20 conversations a day, a weekly rhythm with scripts, follow-up reminders and a contact list. New contacts can also be sent to Follow Up Boss through the `/api/crm-contact` function on the fromstart2keys site (set `CRM_PASSCODE` on Vercel and type the same passcode into CRM settings).

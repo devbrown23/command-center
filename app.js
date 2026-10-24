@@ -68,6 +68,22 @@ const BUSINESSES = [
     ],
   },
   {
+    id: "content",
+    name: "Video Content",
+    subtitle: "Canon R8 · posts & paid shoots",
+    color: "#00c2ff",
+    pipelineName: "Paid shoots",
+    itemLabel: "Client + shoot (e.g. Listing video, 123 Main St)",
+    amountLabel: "Price",
+    tracksVideos: true,
+    topicLabel: "Topic",
+    topics: ["Real estate", "Renovation / DIY", "Lifestyle", "Juice Havan", "Client work", "Other"],
+    stages: ["Inquiry", "Booked", "Shot", "Edited", "Delivered", "Paid"],
+    links: [
+      { label: "Instagram @devinmyagent", url: "https://www.instagram.com/devinmyagent/" },
+    ],
+  },
+  {
     id: "gaming",
     name: "Gaming",
     subtitle: "TikTok & YouTube",
@@ -76,6 +92,8 @@ const BUSINESSES = [
     itemLabel: "Video idea",
     noAmount: true,
     tracksVideos: true,
+    topicLabel: "Game",
+    topics: ["Call of Duty", "GTA 6", "Other"],
     stages: ["Idea", "Recorded", "Edited", "Posted"],
     links: [
       { label: "TikTok Studio", url: "https://www.tiktok.com/tiktokstudio" },
@@ -84,8 +102,7 @@ const BUSINESSES = [
   },
 ];
 
-// Choices for the Gaming tab's video tracker.
-const GAMES = ["Call of Duty", "GTA 6", "Other"];
+// Platforms for the video trackers (Video Content and Gaming tabs).
 const PLATFORMS = ["TikTok", "YouTube Shorts", "YouTube", "Instagram", "Twitch"];
 
 // ---------- state ----------
@@ -96,7 +113,7 @@ function emptyBusiness(biz) {
     money: [],     // { id, date, type: "income"|"expense", amount, note }
     todos: [],     // { id, text, done }
     pipeline: [],  // { id, title, amount, stage }
-    videos: [],    // { id, date, title, game, platform, url, views, likes } (Gaming tab)
+    videos: [],    // { id, date, title, game (the topic or game), platform, url, views, likes } (video tabs)
     links: biz.links.map((l) => ({ id: uid(), ...l })),
     notes: "",
   };
@@ -304,7 +321,7 @@ function renderBusiness(biz) {
     </div>
   </div>
 
-  ${biz.tracksVideos ? renderVideos(s, today) : ""}
+  ${biz.tracksVideos ? renderVideos(biz, s, today) : ""}
 
   <div class="card" style="margin-top:16px">
     <h3>${esc(biz.pipelineName)}</h3>
@@ -324,7 +341,7 @@ function renderBusiness(biz) {
 }
 
 // Video tracker: log each posted video and update its views as they grow.
-function renderVideos(s, today) {
+function renderVideos(biz, s, today) {
   const { views, best, avg } = videoTotals(s.videos);
   const breakdown = (key, options) => options
     .map((o) => [o, s.videos.filter((v) => v[key] === o)])
@@ -349,12 +366,12 @@ function renderVideos(s, today) {
       <div class="stat"><div class="label">Avg views</div><div class="value">${number(avg)}</div></div>
     </div>
     ${best ? `<p class="muted">Top video: <strong>${esc(best.title)}</strong> (${number(best.views)} views, ${esc(best.platform)})</p>` : ""}
-    ${s.videos.length ? `<p class="muted">By platform: ${breakdown("platform", PLATFORMS)}<br>By game: ${breakdown("game", GAMES)}</p>` : ""}
+    ${s.videos.length ? `<p class="muted">By platform: ${breakdown("platform", PLATFORMS)}<br>By ${esc(biz.topicLabel.toLowerCase())}: ${breakdown("game", biz.topics)}</p>` : ""}
     <ul class="list">${rows || `<li class="muted">No videos yet. Add your first post below.</li>`}</ul>
     <form class="row" data-form="video">
       <input type="date" name="date" value="${today}" required>
       <input name="title" placeholder="Video title" required>
-      <select name="game">${GAMES.map((g) => `<option>${g}</option>`).join("")}</select>
+      <select name="game" title="${esc(biz.topicLabel)}">${biz.topics.map((g) => `<option>${esc(g)}</option>`).join("")}</select>
       <select name="platform">${PLATFORMS.map((p) => `<option>${p}</option>`).join("")}</select>
       <input name="url" type="url" placeholder="Link (optional)">
       <input name="views" type="number" min="0" placeholder="Views">
