@@ -36,9 +36,107 @@ const SCORECARD = [
   { id: "posts", label: "Video posts", target: 4, auto: true },
 ];
 
+// CEO dashboard: odds of closing at each stage, used for the commission forecast.
+const STAGE_ODDS = {
+  "Lead": 0.05, "Consultation": 0.15, "Buyer agreement": 0.3, "Pre-approval": 0.4,
+  "Showing": 0.5, "Under contract": 0.9, "Closed": 1,
+};
+const STALL_DAYS = 7;
+const ASSUMED_COMMISSION_RATE = 0.025; // used when a sale price is entered instead of a commission
+
 function planState(s) {
-  s.plan = { scorecard: {}, priority: {}, next7: [], classes: [], reviewsNow: 14, ...(s.plan || {}) };
+  s.plan = { scorecard: {}, priority: {}, next7: [], classes: [], reviewsNow: 14, weekly: {}, ...(s.plan || {}) };
   return s.plan;
+}
+
+// Amounts over $100K are treated as sale prices and converted to an estimated commission.
+function estCommission(amount) {
+  return amount > 100000 ? amount * ASSUMED_COMMISSION_RATE : amount;
+}
+
+function daysSince(dateStr) {
+  return Math.floor((new Date(todayStr() + "T12:00:00") - new Date(dateStr + "T12:00:00")) / 86400000);
+}
+
+function weekStart(weeksAgo) {
+  const d = new Date(weekKey() + "T12:00:00");
+  d.setDate(d.getDate() - 7 * weeksAgo);
+  return d.toLocaleDateString("en-CA");
+}
+
+function renderCeoDashboard(s, gci) {
+  const plan = planState(s);
+  const week = weekKey();
+  const open = s.pipeline.filter((p) => p.stage !== "Closed");
+  const weighted = open.reduce((sum, p) => sum + estCommission(p.amount || 0) * (STAGE_ODDS[p.stage] ?? 0), 0);
+  const projected = gci + weighted;
+  const stageRows = Object.keys(STAGE_ODDS).filter((st) => st !== "Closed").map((st) => {
+    const items = open.filter((p) => p.stage === st);
+    if (!items.length) return "";
+    const total = items.reduce((sum, p) => sum + estCommission(p.amount || 0), 0);
+    return `<li><span class="grow">${esc(st)} (${items.length}) <span class="muted">× ${Math.round(STAGE_ODDS[st] * 100)}%</span></span><span>${money(Math.round(total * STAGE_ODDS[st]))}</span></li>`;
+  }).join("");
+
+  const stalled = open.filter((p) => p.movedAt && daysSince(p.movedAt) >= STALL_DAYS)
+    .sort((a, b) => a.movedAt.localeCompare(b.movedAt));
+  const undated = open.filter((p) => !p.movedAt).length;
+
+  const weeks = Array.from({ length: 8 }, (_, i) => weekStart(7 - i));
+  const trend = weeks.map((w, i) => {
+    const next = i < weeks.length - 1 ? weeks[i + 1] : "9999";
+    const convos = state.crm.touches.filter((t) => t.date >= w && t.date < next).length;
+    const appts = Number((plan.scorecard[w] || {}).appointments) || 0;
+    return { w, convos, appts };
+  });
+  const maxConvos = Math.max(100, ...trend.map((t) => t.convos));
+  const review = plan.weekly[week] || {};
+  const pastReviews = Object.entries(plan.weekly)
+    .filter(([w, r]) => w !== week && (r.wins || r.lessons || r.top3))
+    .sort(([a], [b]) => b.localeCompare(a))
+    .slice(0, 3);
+
+  return `<h2 style="margin:24px 0 0">CEO dashboard</h2>
+  <div class="grid" style="margin-top:12px">
+    <div class="card" style="--tab:#1f6feb">
+      <h3>Commission forecast</h3>
+      <div class="stats">
+        <div class="stat"><div class="label">Earned</div><div class="value">${money(gci)}</div></div>
+        <div class="stat"><div class="label">Likely from pipeline</div><div class="value">${money(Math.round(weighted))}</div></div>
+        <div class="stat"><div class="label">Projected</div><div class="value ${projected >= PLAN_GCI_GOAL ? "pos" : ""}">${money(Math.round(projected))}</div></div>
+      </div>
+      <div class="bar"><div style="width:${Math.min(100, (projected / PLAN_GCI_GOAL) * 100)}%"></div></div>
+      <ul class="list">${stageRows || `<li class="muted">Add clients with an estimated commission to see your forecast.</li>`}</ul>
+      <p class="muted">Each client's commission × their odds of closing at that stage. Enter the commission, or the sale price (prices over $100K count as 2.5%).</p>
+    </div>
+
+    <div class="card">
+      <h3>Stalled deals</h3>
+      <ul class="list">${stalled.map((p) => `<li><span class="grow"><strong>${esc(p.title)}</strong> <span class="muted">${esc(p.stage)}</span></span>
+        <span class="neg">${daysSince(p.movedAt)} days</span></li>`).join("") || `<li class="muted">Nobody stuck. Every client moved in the last ${STALL_DAYS} days.</li>`}</ul>
+      <p class="muted">Clients who haven't changed stage in ${STALL_DAYS}+ days. Call them today with a clear next step.${undated ? ` ${undated} older client${undated > 1 ? "s have" : " has"} no stage date yet; it starts the next time you move them.` : ""}</p>
+    </div>
+
+    <div class="card">
+      <h3>8-week trend</h3>
+      <div class="week" style="grid-template-columns:repeat(8,1fr)">${trend.map((t) => `<div class="day">
+        <div class="day-bar" title="${t.convos} conversations"><div style="height:${(t.convos / maxConvos) * 100}%"></div></div>
+        <div class="muted">${esc(t.w.slice(5))}</div><div class="muted">${t.convos}</div><div class="muted">${t.appts} appt</div></div>`).join("")}</div>
+      <p class="muted">Conversations per week (goal 100) and appointments from your scorecard.</p>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <h3>Friday weekly review</h3>
+    <p class="muted">Week of ${esc(week)}. Five minutes every Friday, like a CEO's weekly business review.</p>
+    <div class="grid" style="gap:10px">
+      <label class="muted">Wins<textarea data-plan="weekly" data-field="wins" placeholder="Deals moved, appointments, reviews...">${esc(review.wins || "")}</textarea></label>
+      <label class="muted">Misses and lessons<textarea data-plan="weekly" data-field="lessons" placeholder="What didn't happen, and why?">${esc(review.lessons || "")}</textarea></label>
+      <label class="muted">Top 3 for next week<textarea data-plan="weekly" data-field="top3" placeholder="1. 2. 3.">${esc(review.top3 || "")}</textarea></label>
+    </div>
+    ${pastReviews.length ? `<details><summary class="muted"><strong>Past reviews</strong></summary>${pastReviews.map(([w, r]) => `<p class="muted"><strong>${esc(w)}</strong><br>Wins: ${esc(r.wins || "–")}<br>Lessons: ${esc(r.lessons || "–")}<br>Top 3: ${esc(r.top3 || "–")}</p>`).join("")}</details>` : ""}
+  </div>
+
+  <h2 style="margin:24px 0 0">2026 plan</h2>`;
 }
 
 function autoScore(id, week) {
@@ -76,7 +174,8 @@ function renderPlan2026(s) {
     return `<li><span class="grow">${esc(row.label)} <span class="muted">(goal ${row.target}${row.auto ? ", auto" : ""})</span></span>${cell}<span class="${hit ? "pos" : "muted"}">${hit ? "✓" : ""}</span></li>`;
   }).join("");
 
-  return `<div class="grid" style="margin-top:16px">
+  return `${renderCeoDashboard(s, gci)}
+  <div class="grid" style="margin-top:12px">
     <div class="card" style="--tab:#1f6feb">
       <h3>$100K in 100 days</h3>
       <div class="stats">
@@ -176,6 +275,10 @@ planView.addEventListener("change", (e) => {
     plan.priority[week] = checks;
   } else if (el.dataset.plan === "next7") {
     plan.next7[Number(el.dataset.i)] = el.checked;
+  } else if (el.dataset.plan === "weekly") {
+    plan.weekly[week] = { ...(plan.weekly[week] || {}), [el.dataset.field]: el.value };
+    save(); // no re-render, so typing in the other boxes isn't interrupted
+    return;
   } else if (el.dataset.plan === "score") {
     plan.scorecard[week] = { ...(plan.scorecard[week] || {}), [el.dataset.id]: el.value === "" ? "" : Math.max(0, Number(el.value)) };
   } else {

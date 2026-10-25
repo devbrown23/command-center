@@ -12,7 +12,7 @@ const BUSINESSES = [
     color: "#1f6feb",
     pipelineName: "Clients",
     itemLabel: "Client name",
-    amountLabel: "Price / commission",
+    amountLabel: "Est. commission (or sale price)",
     // Buyers sign a written agreement before touring (2024 NAR settlement).
     stages: ["Lead", "Consultation", "Buyer agreement", "Pre-approval", "Showing", "Under contract", "Closed"],
     plan2026: true,
@@ -445,6 +445,7 @@ view.addEventListener("change", (e) => {
   } else if (el.dataset.action === "move") {
     const item = s.pipeline.find((x) => x.id === el.dataset.id);
     item.stage = el.value;
+    item.movedAt = new Date().toISOString().slice(0, 10); // for the stalled-deals alert
   } else if (el.dataset.action === "views" || el.dataset.action === "likes") {
     const video = s.videos.find((x) => x.id === el.dataset.id);
     video[el.dataset.action] = Math.max(0, Number(el.value) || 0);
@@ -479,7 +480,7 @@ view.addEventListener("submit", (e) => {
       s.links.push({ id: uid(), label: f.label.trim(), url: f.url.trim() });
       break;
     case "pipeline":
-      s.pipeline.push({ id: uid(), title: f.title.trim(), amount: Number(f.amount) || 0, stage: f.stage });
+      s.pipeline.push({ id: uid(), title: f.title.trim(), amount: Number(f.amount) || 0, stage: f.stage, movedAt: new Date().toISOString().slice(0, 10) });
       break;
     case "video":
       s.videos.push({
