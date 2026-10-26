@@ -59,7 +59,18 @@ async function gmail(path, options = {}) {
     inboxToken = null;
     throw new Error("Your Google sign-in expired. Click Connect Gmail again.");
   }
-  if (!res.ok) throw new Error(`Gmail error ${res.status}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const reason = body.error && body.error.message ? body.error.message : "";
+    if (res.status === 403 && /scope|permission/i.test(reason)) {
+      inboxToken = null;
+      throw new Error("Gmail access wasn't allowed. Tap Connect Gmail again, and on Google's screen check the box that lets Command Center read and manage your email.");
+    }
+    if (res.status === 403 && /has not been used|disabled/i.test(reason)) {
+      throw new Error("The Gmail API isn't turned on for this Google Cloud project. Enable it in Google Cloud (APIs & Services → Library → Gmail API), wait a few minutes, then try again.");
+    }
+    throw new Error(`Gmail error ${res.status}${reason ? `: ${reason}` : ""}`);
+  }
   return res.status === 204 ? {} : res.json();
 }
 
@@ -98,6 +109,10 @@ async function connectGmail() {
       callback: (resp) => {
         if (resp.error) {
           alert(`Google sign-in failed: ${resp.error}`);
+          return;
+        }
+        if (!google.accounts.oauth2.hasGrantedAllScopes(resp, GMAIL_SCOPE)) {
+          alert("Gmail access wasn't allowed. Tap Connect Gmail again, and on Google's screen check the box that lets Command Center read and manage your email.");
           return;
         }
         inboxToken = resp.access_token;
