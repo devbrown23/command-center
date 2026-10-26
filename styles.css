@@ -205,3 +205,9 @@ textarea { width: 100%; min-height: 120px; resize: vertical; }
 details.card summary { cursor: pointer; font-size: 14px; font-weight: 700; color: var(--cyan); text-transform: uppercase; }
 form.row label { display: flex; align-items: center; gap: 6px; }
 form.row input[type=checkbox] { flex: none; }
+
+/* Inbox sender rows: buttons drop below the name on narrow screens */
+ul.list li.sender { flex-wrap: wrap; }
+ul.list li.sender .grow { flex: 1 1 240px; }
+ul.list li.sender .btn-row { flex: 0 1 auto; margin: 0; }
+ul.list li.sender .btn-row a.ghost { padding: 4px 10px; font-size: 13px; text-decoration: none; }

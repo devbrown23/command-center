@@ -228,6 +228,17 @@ async function trashSender(email) {
   }
 }
 
+// Adds a sender to the keep list and re-sorts the current scan.
+function keepSender(email) {
+  const settings = inboxSettings();
+  const keep = settings.keep.split("\n").map((k) => k.trim()).filter(Boolean);
+  if (!keep.some((k) => k.toLowerCase() === email)) keep.push(email);
+  settings.keep = keep.join("\n");
+  save();
+  if (inboxScan) inboxScan.senders.forEach((x) => { x.group = classify(x); });
+  render();
+}
+
 function addLeadToCrm(email) {
   const s = inboxScan.senders.find((x) => x.email === email);
   if (!s) return;
@@ -252,7 +263,7 @@ function gmailLink(id) {
 }
 
 function senderRow(s, actions) {
-  return `<li>
+  return `<li class="sender">
     <span class="grow"><strong>${esc(s.name)}</strong> <span class="muted">${esc(s.email)} · ${s.ids.length} email${s.ids.length > 1 ? "s" : ""} · ${mb(s.size)}</span>
       <br><a class="muted" href="${gmailLink(s.latest.id)}" target="_blank" rel="noopener">${esc(s.latest.subject || "(no subject)")}</a></span>
     <span class="btn-row">${actions}</span>
@@ -266,6 +277,7 @@ function renderInbox() {
   if (scan) scan.senders.forEach((s) => groups[s.group].push(s));
   Object.values(groups).forEach((list) => list.sort((a, b) => b.ids.length - a.ids.length));
   const hogs = scan ? [...scan.messages].sort((a, b) => (b.sizeEstimate || 0) - (a.sizeEstimate || 0)).slice(0, 10) : [];
+  const keepBtn = (s) => `<button data-inbox="keep" data-email="${esc(s.email)}" title="Always keep mail from this sender">Keep</button>`;
   const archiveBtn = (s) => `<button data-inbox="archive" data-email="${esc(s.email)}">Archive all</button>`;
   const trashBtn = (s) => `<button data-inbox="trash" data-email="${esc(s.email)}">Trash all</button>`;
   const unsubBtn = (s) => s.unsubscribe ? `<a class="ghost" href="${esc(s.unsubscribe)}" target="_blank" rel="noopener">Unsubscribe</a>` : "";
@@ -305,13 +317,13 @@ function renderInbox() {
   ${scan ? `<div class="grid" style="margin-top:16px">
     <div class="card">
       <h3>🚫 Unsubscribe</h3>
-      <ul class="list">${groups.unsubscribe.slice(0, 25).map((s) => senderRow(s, unsubBtn(s) + archiveBtn(s) + trashBtn(s))).join("") || `<li class="muted">Nothing here.</li>`}</ul>
+      <ul class="list">${groups.unsubscribe.slice(0, 25).map((s) => senderRow(s, keepBtn(s) + unsubBtn(s) + archiveBtn(s) + trashBtn(s))).join("") || `<li class="muted">Nothing here.</li>`}</ul>
       <p class="muted">Mailing lists that email you a lot. Unsubscribe opens the sender's own unsubscribe page.</p>
     </div>
 
     <div class="card">
       <h3>📦 Archive</h3>
-      <ul class="list">${groups.archive.slice(0, 25).map((s) => senderRow(s, archiveBtn(s) + trashBtn(s))).join("") || `<li class="muted">Nothing here.</li>`}</ul>
+      <ul class="list">${groups.archive.slice(0, 25).map((s) => senderRow(s, keepBtn(s) + archiveBtn(s) + trashBtn(s))).join("") || `<li class="muted">Nothing here.</li>`}</ul>
       <p class="muted">Notifications and social updates. Archiving keeps them searchable in All Mail.</p>
     </div>
   </div>
@@ -333,7 +345,7 @@ function renderInbox() {
 
     <div class="card">
       <h3>👀 Review yourself</h3>
-      <ul class="list">${groups.review.slice(0, 20).map((s) => senderRow(s, archiveBtn(s))).join("") || `<li class="muted">Nothing here.</li>`}</ul>
+      <ul class="list">${groups.review.slice(0, 20).map((s) => senderRow(s, keepBtn(s) + archiveBtn(s))).join("") || `<li class="muted">Nothing here.</li>`}</ul>
       <p class="muted">Everything else, most frequent first.</p>
     </div>
   </div>` : ""}
@@ -366,6 +378,7 @@ inboxView.addEventListener("click", (e) => {
   else if (btn.dataset.inbox === "archive") archiveSender(email);
   else if (btn.dataset.inbox === "trash") trashSender(email);
   else if (btn.dataset.inbox === "lead") addLeadToCrm(email);
+  else if (btn.dataset.inbox === "keep") keepSender(email);
 });
 
 inboxView.addEventListener("submit", (e) => {
