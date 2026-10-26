@@ -195,6 +195,7 @@ function renderTabs() {
   const tabs = [
     { id: "overview", name: "Overview", color: "var(--accent)" },
     { id: "crm", name: "Daily 20 CRM", color: "#1f6feb" },
+    { id: "inbox", name: "Inbox", color: "#ff4fd8" },
     ...BUSINESSES,
   ];
   document.getElementById("tabs").innerHTML = tabs
@@ -386,11 +387,12 @@ function renderVideos(biz, s, today) {
 }
 
 function render() {
-  if (!["overview", "crm"].includes(currentTab) && !BUSINESSES.some((b) => b.id === currentTab)) currentTab = "overview";
+  if (!["overview", "crm", "inbox"].includes(currentTab) && !BUSINESSES.some((b) => b.id === currentTab)) currentTab = "overview";
   renderTabs();
   const biz = BUSINESSES.find((b) => b.id === currentTab);
   const view = document.getElementById("view");
   if (currentTab === "crm") view.innerHTML = renderCrm();
+  else if (currentTab === "inbox") view.innerHTML = renderInbox();
   else view.innerHTML = biz ? renderBusiness(biz) : renderOverview();
 }
 

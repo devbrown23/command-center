@@ -6,7 +6,7 @@ const DEFAULT_FUB_URL = "https://fromstart2keys.com/api/crm-contact"; // no www:
 const DEFAULT_REVIEW_URL = "https://fromstart2keys.com/review.html";
 const REVIEW_STAGES = ["Closed", "Past Client", "Sphere"]; // who to ask first
 
-const CRM_SOURCES = ["Sphere", "Past client", "Open house", "Social media", "Homebuyer class", "FSBO / Expired", "Door knock", "Referral", "Lender / Partner", "Other"];
+const CRM_SOURCES = ["Sphere", "Past client", "Open house", "Social media", "Homebuyer class", "Email", "FSBO / Expired", "Door knock", "Referral", "Lender / Partner", "Other"];
 const CRM_STAGES = ["Lead", "Sphere", "Hot Prospect", "Active Client", "Under Contract", "Closed", "Past Client"];
 const TOUCH_TYPES = [
   { id: "call", label: "Call" },

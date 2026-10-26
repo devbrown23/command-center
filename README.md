@@ -12,6 +12,8 @@ One page to run all my businesses:
 
 The **Daily 20 CRM** tab runs a 100-day prospecting plan: 20 conversations a day, a weekly rhythm with scripts, follow-up reminders and a contact list. New contacts can also be sent to Follow Up Boss through the `/api/crm-contact` function on the fromstart2keys site (set `CRM_PASSCODE` on Vercel and type the same passcode into CRM settings).
 
+The **Inbox** tab connects to Gmail in the browser (Google OAuth client ID in Inbox settings), finds potential clients to add to the CRM, and suggests what to unsubscribe from or archive. Nothing changes in Gmail without a confirm, and scan results are never saved.
+
 Each business has its own tab for monthly income, expenses and a profit goal, a to-do list, a pipeline board, quick links and notes. The Overview tab shows totals across all the businesses.
 
 ## Use it
