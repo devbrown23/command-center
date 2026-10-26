@@ -292,6 +292,90 @@ function streak() {
   return count;
 }
 
+// ---------- CSV import (Follow Up Boss export, or any spreadsheet with name/email/phone columns) ----------
+
+function parseCsv(text) {
+  const rows = [];
+  let row = [], field = "", quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (quoted) {
+      if (ch === '"' && text[i + 1] === '"') { field += '"'; i++; }
+      else if (ch === '"') quoted = false;
+      else field += ch;
+    } else if (ch === '"') quoted = true;
+    else if (ch === ",") { row.push(field); field = ""; }
+    else if (ch === "\n" || ch === "\r") {
+      if (ch === "\r" && text[i + 1] === "\n") i++;
+      row.push(field); field = "";
+      if (row.some((v) => v.trim())) rows.push(row);
+      row = [];
+    } else field += ch;
+  }
+  row.push(field);
+  if (row.some((v) => v.trim())) rows.push(row);
+  return rows;
+}
+
+// Follow Up Boss stages mapped to ours. Unknown stages become Lead; Trash is skipped.
+const FUB_STAGE_MAP = {
+  "lead": "Lead", "new": "Lead", "attempted contact": "Lead", "nurture": "Lead", "prospect": "Lead",
+  "hot prospect": "Hot Prospect", "active client": "Active Client", "buyer contract": "Active Client",
+  "listing agreement": "Active Client", "pending": "Under Contract", "under contract": "Under Contract",
+  "closed": "Closed", "past client": "Past Client", "sphere": "Sphere",
+};
+
+function importContactsCsv(text) {
+  const rows = parseCsv(text.replace(/^\uFEFF/, ""));
+  if (rows.length < 2) return { added: 0, skipped: 0, trash: 0 };
+  const head = rows[0].map((h) => h.trim().toLowerCase());
+  const col = (...names) => head.findIndex((h) => names.includes(h));
+  const cols = (prefix) => head.map((h, i) => (h.startsWith(prefix) ? i : -1)).filter((i) => i >= 0);
+  const iFirst = col("first name", "firstname", "first");
+  const iLast = col("last name", "lastname", "last");
+  const iName = col("name", "full name");
+  const iStage = col("stage", "status");
+  const iSource = col("source", "lead source");
+  const iTags = col("tags");
+  const emailCols = cols("email");
+  const phoneCols = cols("phone");
+
+  const norm = (p) => p.replace(/\D/g, "").slice(-10);
+  const emails = new Set(state.crm.contacts.map((c) => (c.email || "").toLowerCase()).filter(Boolean));
+  const phones = new Set(state.crm.contacts.map((c) => norm(c.phone || "")).filter(Boolean));
+  let added = 0, skipped = 0, trash = 0;
+
+  for (const r of rows.slice(1)) {
+    const get = (i) => (i >= 0 && r[i] ? r[i].trim() : "");
+    const email = emailCols.map(get).find((v) => v.includes("@")) || "";
+    const phone = phoneCols.map(get).find((v) => norm(v).length >= 7) || "";
+    let first = get(iFirst), last = get(iLast);
+    if (!first && !last && iName >= 0) {
+      const parts = get(iName).split(" ");
+      first = parts.shift() || "";
+      last = parts.join(" ");
+    }
+    if (!first && !last && !email && !phone) continue;
+    const fubStage = get(iStage).toLowerCase();
+    if (fubStage === "trash") { trash++; continue; }
+    if ((email && emails.has(email.toLowerCase())) || (phone && phones.has(norm(phone)))) { skipped++; continue; }
+    const tags = get(iTags);
+    state.crm.contacts.push({
+      id: uid(), firstName: first, lastName: last, phone, email,
+      source: get(iSource) || "Follow Up Boss",
+      stage: FUB_STAGE_MAP[fubStage] || (CRM_STAGES.includes(get(iStage)) ? get(iStage) : "Lead"),
+      nextFollowUp: "", notes: tags ? `Tags: ${tags}` : "",
+      createdAt: new Date().toISOString(), lastContact: "",
+      fub: "synced", fubError: "", review: "", reviewAsked: "",
+    });
+    if (email) emails.add(email.toLowerCase());
+    if (phone) phones.add(norm(phone));
+    added++;
+  }
+  save();
+  return { added, skipped, trash };
+}
+
 function contactName(c) {
   return `${c.firstName} ${c.lastName}`.trim() || c.email || c.phone || "(no name)";
 }
@@ -676,6 +760,10 @@ function renderCrm() {
 
   <div class="card" style="margin-top:16px">
     <h3>Contacts (${crm.contacts.length})</h3>
+    <div class="btn-row">
+      <label class="ghost btn-file">Import from Follow Up Boss (CSV)<input type="file" id="crm-import" accept=".csv,text/csv" hidden></label>
+    </div>
+    <p class="muted">In Follow Up Boss: People → select all → Export → CSV. Duplicates (same email or phone) and Trash are skipped.</p>
     <input id="crm-search" placeholder="Search name, phone, source, stage..." style="width:100%;margin-bottom:8px">
     <ul class="list" id="crm-contacts">${contactRows || `<li class="muted">No contacts yet</li>`}</ul>
   </div>
@@ -790,6 +878,19 @@ crmView.addEventListener("change", (e) => {
   else return;
   save();
   render();
+});
+
+crmView.addEventListener("change", async (e) => {
+  if (e.target.id !== "crm-import") return;
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const { added, skipped, trash } = importContactsCsv(await file.text());
+    render();
+    alert(`Imported ${added} contact${added === 1 ? "" : "s"}. Skipped ${skipped} already in your CRM${trash ? ` and ${trash} in Trash` : ""}.`);
+  } catch (err) {
+    alert("Couldn't read that file. Make sure it's a CSV export.");
+  }
 });
 
 crmView.addEventListener("input", (e) => {
