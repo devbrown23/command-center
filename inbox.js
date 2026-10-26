@@ -50,11 +50,22 @@ function mb(bytes) {
 
 // ---------- Gmail ----------
 
-async function gmail(path, options = {}) {
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function gmail(path, options = {}, attempt = 0) {
   const res = await fetch(GMAIL_API + path, {
     ...options,
     headers: { Authorization: `Bearer ${inboxToken}`, "Content-Type": "application/json" },
   });
+  // Gmail's per-minute limit: wait and retry instead of failing the whole scan.
+  if ((res.status === 429 || res.status === 403) && attempt < 6) {
+    const body = await res.clone().json().catch(() => ({}));
+    const reason = body.error && body.error.message ? body.error.message : "";
+    if (res.status === 429 || /quota|rate limit/i.test(reason)) {
+      await sleep(Math.min(60000, 4000 * 2 ** attempt));
+      return gmail(path, options, attempt + 1);
+    }
+  }
   if (res.status === 401) {
     inboxToken = null;
     throw new Error("Your Google sign-in expired. Click Connect Gmail again.");
@@ -80,6 +91,7 @@ async function inBatches(items, size, task, onProgress) {
   for (let i = 0; i < items.length; i += size) {
     out.push(...(await Promise.all(items.slice(i, i + size).map(task))));
     if (onProgress) onProgress(Math.min(items.length, i + size), items.length);
+    await sleep(250); // stay under Gmail's per-minute limit
   }
   return out;
 }
@@ -142,7 +154,7 @@ async function scanInbox() {
       pageToken = page.nextPageToken;
     }
     const fields = ["From", "Subject", "List-Unsubscribe", "Date"].map((h) => `metadataHeaders=${h}`).join("&");
-    const messages = await inBatches(ids, 10, (id) => gmail(`/messages/${id}?format=metadata&${fields}`),
+    const messages = await inBatches(ids, 5, (id) => gmail(`/messages/${id}?format=metadata&${fields}`),
       (done, total) => setBusy(`Reading ${done} of ${total} emails…`));
     inboxScan = { at: new Date().toLocaleString(), senders: groupSenders(messages), messages };
     setBusy("");
