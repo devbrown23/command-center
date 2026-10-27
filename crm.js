@@ -253,7 +253,7 @@ function copyText(text) {
 // ---------- data ----------
 
 function defaultCrm() {
-  return { startDate: "", dailyTarget: 20, contacts: [], touches: [], reviewUrl: "", gbp: {}, emails: {}, doubleDips: [] };
+  return { startDate: "", dailyTarget: 20, contacts: [], touches: [], reviewUrl: "", gbp: {}, emails: {}, doubleDips: [], fubLastPull: "" };
 }
 
 function todayStr(offsetDays = 0) {
@@ -324,6 +324,101 @@ const FUB_STAGE_MAP = {
   "listing agreement": "Active Client", "pending": "Under Contract", "under contract": "Under Contract",
   "closed": "Closed", "past client": "Past Client", "sphere": "Sphere",
 };
+
+// ---------- Pull from Follow Up Boss (through the site's /api/fub-people) ----------
+
+const FUB_AUTO_PULL_HOURS = 6;
+let fubPulling = false;
+
+function fubPeopleUrl() {
+  const { url } = fubSettings();
+  return url ? url.replace(/\/api\/[^/]*$/, "/api/fub-people") : "";
+}
+
+// Adds new people and updates matched ones (by Follow Up Boss id, then email, then phone).
+// Never overwrites notes, follow-up dates or review status set in the CRM.
+function mergeFubPeople(people) {
+  const norm = (p) => (p || "").replace(/\D/g, "").slice(-10);
+  const byFub = new Map(), byEmail = new Map(), byPhone = new Map();
+  for (const c of state.crm.contacts) {
+    if (c.fubId) byFub.set(String(c.fubId), c);
+    if (c.email) byEmail.set(c.email.toLowerCase(), c);
+    if (norm(c.phone)) byPhone.set(norm(c.phone), c);
+  }
+  let added = 0, updated = 0;
+  for (const p of people) {
+    const stageKey = (p.stage || "").toLowerCase();
+    if (stageKey === "trash") continue;
+    const stage = FUB_STAGE_MAP[stageKey] || "Lead";
+    const match = byFub.get(String(p.fubId)) || (p.email && byEmail.get(p.email.toLowerCase())) || (norm(p.phone) && byPhone.get(norm(p.phone)));
+    if (match) {
+      const before = JSON.stringify([match.stage, match.email, match.phone, match.fubId]);
+      match.fubId = p.fubId;
+      match.fub = "synced";
+      if (p.stage) match.stage = stage;
+      if (!match.email && p.email) match.email = p.email;
+      if (!match.phone && p.phone) match.phone = p.phone;
+      if (!match.firstName && !match.lastName) { match.firstName = p.firstName; match.lastName = p.lastName; }
+      if (JSON.stringify([match.stage, match.email, match.phone, match.fubId]) !== before) updated++;
+      continue;
+    }
+    const contact = {
+      id: uid(), firstName: p.firstName, lastName: p.lastName, phone: p.phone, email: p.email,
+      source: p.source || "Follow Up Boss", stage, nextFollowUp: "",
+      notes: p.tags && p.tags.length ? `Tags: ${p.tags.join(", ")}` : "",
+      createdAt: new Date().toISOString(), lastContact: "",
+      fub: "synced", fubId: p.fubId, fubError: "", review: "", reviewAsked: "",
+    };
+    state.crm.contacts.push(contact);
+    byFub.set(String(p.fubId), contact);
+    if (p.email) byEmail.set(p.email.toLowerCase(), contact);
+    if (norm(p.phone)) byPhone.set(norm(p.phone), contact);
+    added++;
+  }
+  return { added, updated };
+}
+
+async function pullFromFub(quiet = false) {
+  const { passcode } = fubSettings();
+  if (!passcode || !fubPeopleUrl() || fubPulling) return null;
+  fubPulling = true;
+  const status = document.getElementById("fub-pull-status");
+  if (status) status.textContent = "Pulling from Follow Up Boss…";
+  try {
+    const people = [];
+    let offset = 0;
+    do {
+      const res = await fetch(`${fubPeopleUrl()}?offset=${offset}`, { headers: { "X-CRM-Passcode": passcode } });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) throw new Error(data.error || `error ${res.status}`);
+      people.push(...data.people);
+      offset = data.nextOffset;
+      if (status) status.textContent = `Pulling from Follow Up Boss… ${people.length} of ${data.total}`;
+    } while (offset !== null && offset !== undefined);
+    const { added, updated } = mergeFubPeople(people);
+    state.crm.fubLastPull = new Date().toISOString();
+    save();
+    render();
+    const msg = `Follow Up Boss: ${added} new, ${updated} updated (${people.length} people checked).`;
+    const after = document.getElementById("fub-pull-status");
+    if (after) after.textContent = msg;
+    return msg;
+  } catch (err) {
+    const msg = `Couldn't pull from Follow Up Boss: ${err instanceof TypeError ? "couldn't reach your site" : err.message}`;
+    const after = document.getElementById("fub-pull-status");
+    if (after) after.textContent = msg;
+    if (!quiet) alert(msg);
+    return null;
+  } finally {
+    fubPulling = false;
+  }
+}
+
+// Pull automatically when the app opens, at most every few hours.
+window.addEventListener("load", () => {
+  const last = state.crm.fubLastPull ? new Date(state.crm.fubLastPull).getTime() : 0;
+  if (Date.now() - last > FUB_AUTO_PULL_HOURS * 3600000) setTimeout(() => pullFromFub(true), 3000);
+});
 
 function importContactsCsv(text) {
   const rows = parseCsv(text.replace(/^\uFEFF/, ""));
@@ -783,9 +878,11 @@ function renderCrm() {
   <div class="card" style="margin-top:16px">
     <h3>Contacts (${crm.contacts.length})</h3>
     <div class="btn-row">
-      <label class="ghost btn-file">Import from Follow Up Boss (CSV)<input type="file" id="crm-import" accept=".csv,text/csv" hidden></label>
+      <button class="primary" data-crm="fub-pull">Pull from Follow Up Boss</button>
+      <label class="ghost btn-file">Import CSV<input type="file" id="crm-import" accept=".csv,text/csv" hidden></label>
     </div>
-    <p class="muted">In Follow Up Boss: People → select all → Export → CSV. Duplicates (same email or phone) and Trash are skipped.</p>
+    <p class="muted" id="fub-pull-status">${crm.fubLastPull ? `Last pulled from Follow Up Boss ${esc(new Date(crm.fubLastPull).toLocaleString())}.` : "Pull brings in everyone from Follow Up Boss. It also runs on its own when you open the app (every few hours)."}</p>
+    <p class="muted">Matches by Follow Up Boss ID, email or phone, so nobody is added twice. Trash is skipped. Your notes and follow-up dates are never overwritten.</p>
     <input id="crm-search" placeholder="Search name, phone, source, stage..." style="width:100%;margin-bottom:8px">
     <ul class="list" id="crm-contacts">${contactRows || `<li class="muted">No contacts yet</li>`}</ul>
   </div>
@@ -819,6 +916,9 @@ crmView.addEventListener("click", (e) => {
   const crm = state.crm;
   const id = btn.dataset.id;
   switch (btn.dataset.crm) {
+    case "fub-pull":
+      pullFromFub();
+      return;
     case "test-fub":
       btn.textContent = "Testing…";
       testFubConnection().then((msg) => {
