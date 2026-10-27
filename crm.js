@@ -802,6 +802,7 @@ function renderCrm() {
     </form>
     <div class="btn-row"><button data-crm="test-fub">Test Follow Up Boss connection</button></div>
     <p class="muted" id="fub-test-result"></p>
+    ${renderSyncSettings()}
     <p class="muted">The passcode is saved on this device only and is never included in Export backup.</p>
   </details>`;
 }

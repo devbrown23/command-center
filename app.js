@@ -141,6 +141,7 @@ function save() {
   } catch (e) {
     alert("Could not save. Your browser may be blocking storage.");
   }
+  scheduleSync();
 }
 
 let state = load();
@@ -515,6 +516,7 @@ document.getElementById("import").addEventListener("change", async (e) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     state = load();
     render();
+    scheduleSync();
   } catch (err) {
     alert("That file isn't a valid backup.");
   } finally {

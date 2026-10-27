@@ -22,6 +22,7 @@
     </div>
     <div class="top-actions">
       <label>Month <input type="month" id="month"></label>
+      <span id="sync-status" class="muted"></span>
       <button id="export" class="ghost">Export backup</button>
       <label class="ghost btn-file">Import backup<input type="file" id="import" accept="application/json" hidden></label>
     </div>
@@ -30,11 +31,12 @@
   <nav id="tabs" class="tabs"></nav>
   <main id="view"></main>
 
-  <footer class="foot">Your data is saved in this browser only. Use Export backup to keep a copy or move it to another device.</footer>
+  <footer class="foot">Your data is saved on this device. Turn on cloud sync in Daily 20 CRM → CRM settings to share it with your phone and laptop, and use Export backup for an extra copy.</footer>
 
   <script src="crm.js"></script>
   <script src="plan.js"></script>
   <script src="inbox.js"></script>
+  <script src="sync.js"></script>
   <script src="app.js"></script>
   <script>
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
