@@ -439,10 +439,32 @@ async function sendToFub(contact) {
     contact.fubError = "";
   } catch (err) {
     contact.fub = "failed";
-    contact.fubError = err.message === "Failed to fetch" ? "Couldn't reach your site" : err.message;
+    // Network errors read differently per browser ("Failed to fetch" in Chrome, "Load failed" in Safari).
+    contact.fubError = err instanceof TypeError ? "Couldn't reach your site" : err.message;
   }
   save();
   render();
+}
+
+// Sends an empty request so the site answers with what's wrong, without creating anyone in Follow Up Boss.
+async function testFubConnection() {
+  const { url, passcode } = fubSettings();
+  if (!url || !passcode) return "Add your site link and passcode, then tap Save settings first.";
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CRM-Passcode": passcode },
+      body: "{}",
+    });
+    const data = await res.json().catch(() => null);
+    if (res.status === 400 && data) return "✅ Connected. Your passcode works and your site is set up. Add a test contact to confirm it lands in Follow Up Boss.";
+    if (res.status === 401) return "❌ Wrong passcode. It must match CRM_PASSCODE in Vercel exactly, including capital letters.";
+    if (res.status === 500) return "❌ Your site is missing CRM_PASSCODE or FUB_API_KEY in Vercel, or it wasn't redeployed after adding them.";
+    if (res.status === 404) return "❌ Your site doesn't have the connection yet. Check the link, and make sure the latest version is deployed on Vercel.";
+    return `❌ Unexpected answer from your site (error ${res.status}).`;
+  } catch (err) {
+    return "❌ Couldn't reach your site. Check the link (try it with and without www.), and make sure the site is online.";
+  }
 }
 
 // ---------- rendering ----------
@@ -481,7 +503,7 @@ function dueContacts() {
 function fubBadge(c) {
   if (c.fub === "synced") return `<span class="pos" title="In Follow Up Boss">✓ FUB</span>`;
   if (c.fub === "pending") return `<span class="muted">Sending…</span>`;
-  if (c.fub === "failed") return `<button class="x neg" data-crm="retry" data-id="${c.id}" title="${esc(c.fubError)}">⟳ FUB</button>`;
+  if (c.fub === "failed") return `<button class="x neg" data-crm="retry" data-id="${c.id}" title="${esc(c.fubError)}">⟳ FUB</button><span class="neg" style="font-size:12px">${esc(c.fubError)}</span>`;
   return `<button class="x" data-crm="retry" data-id="${c.id}" title="Send to Follow Up Boss">+ FUB</button>`;
 }
 
@@ -778,6 +800,8 @@ function renderCrm() {
       <input name="passcode" type="password" placeholder="CRM passcode (same as CRM_PASSCODE on Vercel)" value="${esc(fub.passcode)}">
       <button class="primary">Save settings</button>
     </form>
+    <div class="btn-row"><button data-crm="test-fub">Test Follow Up Boss connection</button></div>
+    <p class="muted" id="fub-test-result"></p>
     <p class="muted">The passcode is saved on this device only and is never included in Export backup.</p>
   </details>`;
 }
@@ -794,6 +818,14 @@ crmView.addEventListener("click", (e) => {
   const crm = state.crm;
   const id = btn.dataset.id;
   switch (btn.dataset.crm) {
+    case "test-fub":
+      btn.textContent = "Testing…";
+      testFubConnection().then((msg) => {
+        btn.textContent = "Test Follow Up Boss connection";
+        const out = document.getElementById("fub-test-result");
+        if (out) out.textContent = msg;
+      });
+      return;
     case "double-dip":
       crm.doubleDips.push(todayStr());
       break;
