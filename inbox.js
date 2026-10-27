@@ -21,6 +21,7 @@ const LEAD_WORDS = /\b(buy|buying|sell|selling|home|house|condo|townhome|listing
 let inboxScan = null;
 let inboxToken = null;
 let inboxBusy = "";
+let inboxAccount = ""; // email of the connected Gmail, so links open the right account
 
 function inboxSettings() {
   state.inbox = { clientId: "", scanSize: 500, keep: DEFAULT_KEEP, ...(state.inbox || {}) };
@@ -107,7 +108,7 @@ function loadGoogleScript() {
   });
 }
 
-async function connectGmail() {
+async function connectGmail(switchAccount = false) {
   const { clientId } = inboxSettings();
   if (!clientId) {
     alert("Add your Google client ID in Inbox settings first.");
@@ -128,9 +129,11 @@ async function connectGmail() {
           return;
         }
         inboxToken = resp.access_token;
+        inboxScan = null;
+        gmail("/profile").then((p) => { inboxAccount = p.emailAddress || ""; render(); }).catch(() => {});
         scanInbox();
       },
-    }).requestAccessToken();
+    }).requestAccessToken(switchAccount ? { prompt: "select_account" } : {});
   } catch (err) {
     alert(err.message);
   }
@@ -259,7 +262,8 @@ function addLeadToCrm(email) {
 // ---------- rendering ----------
 
 function gmailLink(id) {
-  return `https://mail.google.com/mail/u/0/#all/${id}`;
+  const account = inboxAccount ? `?authuser=${encodeURIComponent(inboxAccount)}` : "";
+  return `https://mail.google.com/mail/${account}#all/${id}`;
 }
 
 function senderRow(s, actions) {
@@ -285,8 +289,8 @@ function renderInbox() {
   const status = inboxBusy
     ? `<p><strong>${esc(inboxBusy)}</strong></p>`
     : scan
-      ? `<p class="muted">Scanned ${scan.messages.length} inbox emails from ${scan.senders.length} senders at ${esc(scan.at)}.</p>`
-      : `<p class="muted">${inboxToken ? "Connected." : "Not connected yet."} Nothing is changed in Gmail unless you click a button and confirm.</p>`;
+      ? `<p class="muted">${inboxAccount ? `<strong>${esc(inboxAccount)}</strong> · ` : ""}Scanned ${scan.messages.length} inbox emails from ${scan.senders.length} senders at ${esc(scan.at)}.</p>`
+      : `<p class="muted">${inboxToken ? `Connected${inboxAccount ? ` as ${esc(inboxAccount)}` : ""}.` : "Not connected yet."} Nothing is changed in Gmail unless you click a button and confirm.</p>`;
 
   return `<div class="grid">
     <div class="card" style="--tab:#ff4fd8">
@@ -294,7 +298,8 @@ function renderInbox() {
       ${status}
       <div class="btn-row">
         ${inboxToken
-          ? `<button class="primary" data-inbox="scan" ${inboxBusy ? "disabled" : ""}>Scan inbox</button>`
+          ? `<button class="primary" data-inbox="scan" ${inboxBusy ? "disabled" : ""}>Scan inbox</button>
+             <button data-inbox="switch" ${inboxBusy ? "disabled" : ""}>Switch Gmail account</button>`
           : `<button class="primary" data-inbox="connect">Connect Gmail</button>`}
       </div>
       ${scan ? `<div class="stats" style="margin-top:10px">
@@ -374,6 +379,7 @@ inboxView.addEventListener("click", (e) => {
   e.preventDefault();
   const email = btn.dataset.email;
   if (btn.dataset.inbox === "connect") connectGmail();
+  else if (btn.dataset.inbox === "switch") connectGmail(true);
   else if (btn.dataset.inbox === "scan") scanInbox();
   else if (btn.dataset.inbox === "archive") archiveSender(email);
   else if (btn.dataset.inbox === "trash") trashSender(email);
