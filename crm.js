@@ -414,6 +414,106 @@ async function pullFromFub(quiet = false) {
   }
 }
 
+
+// ---------- Client Pool (shared with the lender) ----------
+// Contacts shared here show up on fromstart2keys.com/pool, where the lender updates loan progress.
+// Uses the same site link and passcode as the Follow Up Boss connection.
+
+const POOL_SOURCE = { "Homebuyer class": "Homebuyer class" };
+let poolPulling = false;
+
+function poolUrl() {
+  const { url } = fubSettings();
+  return url ? url.replace(/\/api\/[^/]*$/, "/api/lender-pool") : "";
+}
+
+function poolSourceFor(c) {
+  if (POOL_SOURCE[c.source]) return POOL_SOURCE[c.source];
+  if (["Active Client", "Hot Prospect", "Under Contract"].includes(c.stage)) return "Active client";
+  return "Other";
+}
+
+async function shareToPool(contact) {
+  const { passcode } = fubSettings();
+  if (!poolUrl() || !passcode) {
+    alert("Add your site link and passcode in CRM settings first.");
+    return;
+  }
+  contact.poolState = "pending";
+  render();
+  try {
+    const res = await fetch(poolUrl(), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Pool-Passcode": passcode },
+      body: JSON.stringify({
+        client: {
+          id: contact.poolId || `cc_${contact.id}`,
+          crmId: contact.id,
+          firstName: contact.firstName,
+          lastName: contact.lastName,
+          phone: contact.phone,
+          email: contact.email,
+          source: poolSourceFor(contact),
+          agentStage: contact.stage,
+          agentNote: contact.notes,
+        },
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) throw new Error(data.error || `Error ${res.status}`);
+    contact.poolId = data.client.id;
+    contact.loan = { status: data.client.loanStatus, preapproval: data.client.preapproval, dpa: data.client.dpa, note: data.client.lenderNote, updatedAt: data.client.updatedAt, by: data.client.updatedBy };
+    contact.poolState = "";
+  } catch (err) {
+    contact.poolState = "";
+    alert(`Couldn't share with the lender: ${err instanceof TypeError ? "couldn't reach your site" : err.message}`);
+  }
+  save();
+  render();
+}
+
+// Brings the lender's latest loan status back onto each shared contact.
+async function pullPool(quiet = true) {
+  const { passcode } = fubSettings();
+  if (!poolUrl() || !passcode || poolPulling) return;
+  poolPulling = true;
+  try {
+    const res = await fetch(poolUrl(), { headers: { "X-Pool-Passcode": passcode } });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) throw new Error(data.error || `Error ${res.status}`);
+    const byCrm = new Map(data.clients.filter((x) => x.crmId).map((x) => [x.crmId, x]));
+    let changed = false;
+    for (const c of state.crm.contacts) {
+      const p = byCrm.get(c.id);
+      if (!p) {
+        if (c.poolId) { delete c.poolId; delete c.loan; changed = true; }
+        continue;
+      }
+      const loan = { status: p.loanStatus, preapproval: p.preapproval, dpa: p.dpa, note: p.lenderNote, updatedAt: p.updatedAt, by: p.updatedBy };
+      if (JSON.stringify(loan) !== JSON.stringify(c.loan) || c.poolId !== p.id) { c.loan = loan; c.poolId = p.id; changed = true; }
+    }
+    state.crm.poolLastPull = new Date().toISOString();
+    save();
+    if (changed || !quiet) render();
+  } catch (err) {
+    if (!quiet) alert(`Couldn't load lender updates: ${err instanceof TypeError ? "couldn't reach your site" : err.message}`);
+  } finally {
+    poolPulling = false;
+  }
+}
+
+function poolBadge(c) {
+  if (c.poolState === "pending") return `<span class="muted">Sharing…</span>`;
+  if (!c.poolId) return `<button class="x" data-crm="pool-share" data-id="${c.id}" title="Share with your lender in the Client Pool">+ Lender</button>`;
+  const l = c.loan || {};
+  const tip = [l.preapproval && `Pre-approved for ${l.preapproval}`, l.dpa && `DPA: ${l.dpa}`, l.note].filter(Boolean).join(" · ");
+  const cls = l.status === "Pre-approved" || l.status === "Closed" ? "pos" : l.status === "Not ready yet" ? "neg" : "muted";
+  return `<span class="${cls}" title="${esc(tip || "Shared with lender")}">🏦 ${esc(l.status || "New")}${l.preapproval ? ` · ${esc(l.preapproval)}` : ""}</span>`;
+}
+
+window.addEventListener("load", () => setTimeout(() => pullPool(true), 4000));
+document.addEventListener("visibilitychange", () => { if (!document.hidden) pullPool(true); });
+
 // Pull automatically when the app opens, at most every few hours.
 window.addEventListener("load", () => {
   const last = state.crm.fubLastPull ? new Date(state.crm.fubLastPull).getTime() : 0;
@@ -808,11 +908,13 @@ function renderCrm() {
     .map((c) => `<li data-search="${esc(`${contactName(c)} ${c.email} ${c.phone} ${c.source} ${c.stage}`.toLowerCase())}">
       <span class="grow"><strong>${esc(contactName(c))}</strong>
         <span class="muted">${esc(c.source)}${c.phone ? ` · <a href="tel:${esc(c.phone)}">${esc(c.phone)}</a>` : ""}${c.email ? ` · ${esc(c.email)}` : ""}</span>
-        ${c.notes ? `<br><span class="muted">${esc(c.notes)}</span>` : ""}</span>
+        ${c.notes ? `<br><span class="muted">${esc(c.notes)}</span>` : ""}
+        ${c.loan && c.loan.note ? `<br><span class="muted">🏦 Lender: ${esc(c.loan.note)}</span>` : ""}</span>
       <select data-crm="stage" data-id="${c.id}">${CRM_STAGES.map((s) => `<option ${s === c.stage ? "selected" : ""}>${s}</option>`).join("")}</select>
       <input type="date" data-crm="next" data-id="${c.id}" value="${esc(c.nextFollowUp || "")}" title="Next follow-up">
       ${reviewBadge(c)}
       ${fubBadge(c)}
+      ${poolBadge(c)}
       <button class="x" data-crm="del" data-id="${c.id}" title="Delete">✕</button>
     </li>`).join("");
 
@@ -871,6 +973,7 @@ function renderCrm() {
       <label class="muted"><input type="checkbox" name="talked" checked> I talked to them today (counts toward 20)</label>
       <label class="muted"><input type="checkbox" name="reviewAsked"> I already sent them the review link</label>
       <label class="muted"><input type="checkbox" name="toFub" ${fub.passcode ? "checked" : ""}> Also add to Follow Up Boss</label>
+      <label class="muted"><input type="checkbox" name="toPool"> Share with my lender (Client Pool)</label>
       <button class="primary">Add person</button>
     </form>
   </div>
@@ -879,10 +982,12 @@ function renderCrm() {
     <h3>Contacts (${crm.contacts.length})</h3>
     <div class="btn-row">
       <button class="primary" data-crm="fub-pull">Pull from Follow Up Boss</button>
+      <button data-crm="pool-pull">Pull lender updates</button>
       <label class="ghost btn-file">Import CSV<input type="file" id="crm-import" accept=".csv,text/csv" hidden></label>
     </div>
     <p class="muted" id="fub-pull-status">${crm.fubLastPull ? `Last pulled from Follow Up Boss ${esc(new Date(crm.fubLastPull).toLocaleString())}.` : "Pull brings in everyone from Follow Up Boss. It also runs on its own when you open the app (every few hours)."}</p>
     <p class="muted">Matches by Follow Up Boss ID, email or phone, so nobody is added twice. Trash is skipped. Your notes and follow-up dates are never overwritten.</p>
+    <p class="muted">Tap <strong>+ Lender</strong> to share someone with your lender in the <a href="https://www.fromstart2keys.com/pool" target="_blank" rel="noopener">Client Pool</a>. Their loan status shows here as 🏦 and updates on its own.</p>
     <input id="crm-search" placeholder="Search name, phone, source, stage..." style="width:100%;margin-bottom:8px">
     <ul class="list" id="crm-contacts">${contactRows || `<li class="muted">No contacts yet</li>`}</ul>
   </div>
@@ -918,6 +1023,14 @@ crmView.addEventListener("click", (e) => {
   switch (btn.dataset.crm) {
     case "fub-pull":
       pullFromFub();
+      return;
+    case "pool-share": {
+      const c = crm.contacts.find((x) => x.id === id);
+      if (c) shareToPool(c);
+      return;
+    }
+    case "pool-pull":
+      pullPool(false);
       return;
     case "test-fub":
       btn.textContent = "Testing…";
@@ -1085,4 +1198,5 @@ crmView.addEventListener("submit", (e) => {
   save();
   render();
   if (f.toFub) sendToFub(contact);
+  if (f.toPool) shareToPool(contact);
 });

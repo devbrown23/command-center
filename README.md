@@ -12,6 +12,8 @@ One page to run all my businesses:
 
 The **Daily 20 CRM** tab runs a 100-day prospecting plan: 20 conversations a day, a weekly rhythm with scripts, follow-up reminders and a contact list. New contacts can also be sent to Follow Up Boss through the `/api/crm-contact` function on the fromstart2keys site (set `CRM_PASSCODE` on Vercel and type the same passcode into CRM settings).
 
+The **Client Pool** connection shares contacts with your lender. Tap **+ Lender** on a contact (or tick "Share with my lender" when adding someone) and they appear on `fromstart2keys.com/pool`, where your lender updates loan status, pre-approval amount, down payment assistance and notes. Those updates show back on the contact as 🏦 and refresh when the app opens. It uses the same site link and passcode as Follow Up Boss; your lender signs in with `LENDER_PASSCODE` and only sees the pool, never the rest of this app.
+
 The **Inbox** tab connects to Gmail in the browser (Google OAuth client ID in Inbox settings), finds potential clients to add to the CRM, and suggests what to unsubscribe from or archive. Nothing changes in Gmail without a confirm, and scan results are never saved.
 
 **Cloud sync** (CRM settings → Turn on cloud sync) saves the whole app to the fromstart2keys site (`/api/cc-sync`, Upstash Redis via Vercel Storage) so phone and laptop share data. It uses the same site link and passcode as the Follow Up Boss connection.
