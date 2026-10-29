@@ -211,3 +211,11 @@ ul.list li.sender { flex-wrap: wrap; }
 ul.list li.sender .grow { flex: 1 1 240px; }
 ul.list li.sender .btn-row { flex: 0 1 auto; margin: 0; }
 ul.list li.sender .btn-row a.ghost { padding: 4px 10px; font-size: 13px; text-decoration: none; }
+
+/* Link-style buttons (Deal of the Week card) */
+a.btn { display: inline-flex; align-items: center; text-decoration: none; border-radius: 8px; padding: 4px 10px; font-size: 13px; }
+a.btn.primary {
+  background: linear-gradient(135deg, var(--straw-red), #ff6a3d);
+  color: #fff; font-weight: 700; box-shadow: 0 0 14px rgba(255, 46, 77, 0.45);
+}
+a.btn.primary:hover { filter: brightness(1.1); }

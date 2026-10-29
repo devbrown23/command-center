@@ -14,6 +14,8 @@ The **Daily 20 CRM** tab runs a 100-day prospecting plan: 20 conversations a day
 
 The **Client Pool** connection shares contacts with your lender. Tap **+ Lender** on a contact (or tick "Share with my lender" when adding someone) and they appear on `fromstart2keys.com/pool`, where your lender updates loan status, pre-approval amount, down payment assistance and notes. Those updates show back on the contact as 🏦 and refresh when the app opens. It uses the same site link and passcode as Follow Up Boss; your lender signs in with `LENDER_PASSCODE` and only sees the pool, never the rest of this app.
 
+The **Deal of the Week** card (Overview and From Start 2 Keys tabs) shows this week's deal from `fromstart2keys.com/deal` with visits, MLS clicks and leads by source, plus the Deal of the Week leads already in your CRM. Buttons open the live page and the update page. Same site link and passcode as Follow Up Boss.
+
 The **Inbox** tab connects to Gmail in the browser (Google OAuth client ID in Inbox settings), finds potential clients to add to the CRM, and suggests what to unsubscribe from or archive. Nothing changes in Gmail without a confirm, and scan results are never saved.
 
 **Cloud sync** (CRM settings → Turn on cloud sync) saves the whole app to the fromstart2keys site (`/api/cc-sync`, Upstash Redis via Vercel Storage) so phone and laptop share data. It uses the same site link and passcode as the Follow Up Boss connection.

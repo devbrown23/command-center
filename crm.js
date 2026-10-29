@@ -514,6 +514,113 @@ function poolBadge(c) {
 window.addEventListener("load", () => setTimeout(() => pullPool(true), 4000));
 document.addEventListener("visibilitychange", () => { if (!document.hidden) pullPool(true); });
 
+
+// ---------- Deal of the Week (fromstart2keys.com/deal) ----------
+// Shows this week's deal with its visits, MLS clicks and leads, pulled from /api/deal on the site.
+// Uses the same site link and passcode as the Follow Up Boss connection.
+
+let dealInfo = null; // { deal, stats, at } kept in memory; refreshed on open and when the app comes back to the front
+let dealLoading = false;
+let dealError = "";
+
+function dealApiUrl() {
+  const { url } = fubSettings();
+  return url ? url.replace(/\/api\/[^/]*$/, "/api/deal") : "";
+}
+
+function dealSiteUrl(path) {
+  const api = dealApiUrl();
+  return api ? api.replace(/\/api\/deal$/, path) : `https://www.fromstart2keys.com${path}`;
+}
+
+async function loadDealStats(rerender = true) {
+  const { passcode } = fubSettings();
+  if (!dealApiUrl() || !passcode || dealLoading) return;
+  dealLoading = true;
+  try {
+    const res = await fetch(dealApiUrl(), { headers: { "X-CRM-Passcode": passcode }, cache: "no-store" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) throw new Error(data.error || `Error ${res.status}`);
+    if (!("stats" in data)) throw new Error("Passcode doesn't match your site. Update it in CRM settings.");
+    dealInfo = { deal: data.deal, stats: data.stats || {}, at: new Date().toISOString() };
+    dealError = "";
+  } catch (err) {
+    dealError = err instanceof TypeError ? "Couldn't reach your site" : err.message;
+  } finally {
+    dealLoading = false;
+    if (rerender) render();
+  }
+}
+
+function dealLeads() {
+  return state.crm.contacts
+    .filter((c) => /deal of the week|DOTW:/i.test(`${c.notes || ""} ${c.source || ""}`))
+    .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+}
+
+function renderDealCard() {
+  const { passcode } = fubSettings();
+  const editUrl = dealSiteUrl("/deal/edit");
+  const pageUrl = dealSiteUrl("/deal");
+  const head = `<div class="row" style="justify-content:space-between;align-items:center">
+      <h2 style="margin:0">🔥 Deal of the Week</h2>
+      <div class="btn-row" style="margin:0">
+        <a class="btn ghost" href="${esc(pageUrl)}" target="_blank" rel="noopener">View page</a>
+        <a class="btn primary" href="${esc(editUrl)}" target="_blank" rel="noopener">Update deal</a>
+        <button data-deal="refresh">${dealLoading ? "Refreshing…" : "Refresh"}</button>
+      </div>
+    </div>`;
+  if (!passcode) return `<div class="card" style="margin-bottom:16px">${head}<p class="muted">Add your site link and passcode in Daily 20 CRM → CRM settings to see your deal stats here.</p></div>`;
+  if (dealError && !dealInfo) return `<div class="card" style="margin-bottom:16px">${head}<p class="neg">${esc(dealError)}</p></div>`;
+  if (!dealInfo) return `<div class="card" style="margin-bottom:16px">${head}<p class="muted">Loading your deal…</p></div>`;
+
+  const { deal, stats } = dealInfo;
+  if (!deal) return `<div class="card" style="margin-bottom:16px">${head}<p class="muted">No deal is live right now. Tap <strong>Update deal</strong> to publish this week's.</p></div>`;
+
+  const sources = ["instagram", "facebook", "text", "linktree", "direct", "other"];
+  const sum = (kind) => sources.reduce((n, s) => n + (stats[`${kind}:${s}`] || 0), 0);
+  const visits = sum("view"), clicks = sum("click"), leads = sum("lead");
+  const rows = sources
+    .map((s) => [s, stats[`view:${s}`] || 0, stats[`click:${s}`] || 0, stats[`lead:${s}`] || 0])
+    .filter((r) => r[1] || r[2] || r[3])
+    .map((r) => `<li><span class="grow">${esc(r[0][0].toUpperCase() + r[0].slice(1))}</span><span class="muted">${r[1]} visits · ${r[2]} clicks · ${r[3]} leads</span></li>`)
+    .join("");
+  const rate = visits ? Math.round((leads / visits) * 100) : 0;
+  const people = dealLeads().slice(0, 5);
+  const peopleRows = people
+    .map((c) => `<li><span class="grow"><strong>${esc(contactName(c))}</strong> <span class="muted">${esc(c.stage)}${c.phone ? ` · <a href="tel:${esc(c.phone)}">${esc(c.phone)}</a>` : ""}</span></span>${poolBadge(c)}</li>`)
+    .join("");
+
+  return `<div class="card" style="margin-bottom:16px;--tab:#d4af6a">
+    ${head}
+    <p style="margin:6px 0 10px"><strong>${esc(deal.address)}</strong>${deal.city ? `, ${esc(deal.city)}` : ""} · ${esc(deal.price)}${deal.dealTitle ? ` · <span class="muted">${esc(deal.dealTitle)}</span>` : ""}</p>
+    <div class="stats">
+      <div class="stat"><div class="label">Visits</div><div class="value">${visits}</div></div>
+      <div class="stat"><div class="label">Clicked MLS</div><div class="value">${clicks}</div></div>
+      <div class="stat"><div class="label">Leads</div><div class="value ${leads ? "pos" : ""}">${leads}</div></div>
+      <div class="stat"><div class="label">Visit → lead</div><div class="value">${rate}%</div></div>
+    </div>
+    ${rows ? `<div class="muted">By source:</div><ul class="list">${rows}</ul>` : `<p class="muted">No visits yet. Share your link!</p>`}
+    <div class="muted" style="margin-top:8px">Deal of the Week leads in your CRM:</div>
+    <ul class="list">${peopleRows || `<li class="muted">None yet. They show up here after a Follow Up Boss pull.</li>`}</ul>
+    <p class="muted" style="font-size:12px">Updated ${esc(new Date(dealInfo.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }))}${dealError ? ` · <span class="neg">${esc(dealError)}</span>` : ""}. Counts reset when you publish a new address.</p>
+  </div>`;
+}
+
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-deal]");
+  if (!btn) return;
+  e.preventDefault();
+  if (btn.dataset.deal === "refresh") {
+    loadDealStats(false);
+    btn.textContent = "Refreshing…";
+    // Pull fresh FUB contacts too, so new Deal of the Week leads show up in the list.
+    Promise.resolve(typeof pullFromFub === "function" ? pullFromFub(true) : null).finally(() => render());
+  }
+});
+window.addEventListener("load", () => setTimeout(() => loadDealStats(), 2500));
+document.addEventListener("visibilitychange", () => { if (!document.hidden) loadDealStats(); });
+
 // Pull automatically when the app opens, at most every few hours.
 window.addEventListener("load", () => {
   const last = state.crm.fubLastPull ? new Date(state.crm.fubLastPull).getTime() : 0;

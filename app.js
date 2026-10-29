@@ -230,7 +230,8 @@ function renderOverview() {
   }).join("");
 
   const profit = totalIncome - totalExpense;
-  return `${renderCrmOverviewCard()}
+  return `${renderDealCard()}
+  ${renderCrmOverviewCard()}
     <div class="card" style="margin-bottom:16px">
       <h2>All businesses, ${esc(monthInput.value)}</h2>
       <div class="stats">
@@ -324,6 +325,8 @@ function renderBusiness(biz) {
       </form>
     </div>
   </div>
+
+  ${biz.id === "realestate" ? `<div style="margin-top:16px">${renderDealCard()}</div>` : ""}
 
   ${biz.plan2026 ? renderPlan2026(s) : ""}
 
