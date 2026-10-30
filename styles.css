@@ -219,3 +219,8 @@ a.btn.primary {
   color: #fff; font-weight: 700; box-shadow: 0 0 14px rgba(255, 46, 77, 0.45);
 }
 a.btn.primary:hover { filter: brightness(1.1); }
+
+/* Passcode box with show/hide button */
+.pw-wrap { position: relative; display: inline-flex; align-items: center; flex: 1 1 260px; }
+.pw-wrap input { width: 100%; padding-right: 40px; }
+.pw-wrap .x { position: absolute; right: 4px; font-size: 16px; }

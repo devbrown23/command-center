@@ -607,6 +607,18 @@ function renderDealCard() {
   </div>`;
 }
 
+// Show/hide the passcode in CRM settings.
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-pw]");
+  if (!b) return;
+  e.preventDefault();
+  const inp = b.parentElement.querySelector("input");
+  const show = inp.type === "password";
+  inp.type = show ? "text" : "password";
+  b.textContent = show ? "🙈" : "👁";
+  b.title = b.ariaLabel = show ? "Hide passcode" : "Show passcode";
+});
+
 document.addEventListener("click", (e) => {
   const btn = e.target.closest("button[data-deal]");
   if (!btn) return;
@@ -1106,7 +1118,7 @@ function renderCrm() {
       <label class="muted">Daily target <input type="number" name="dailyTarget" min="1" value="${crm.dailyTarget}"></label>
       <input name="reviewUrl" type="url" placeholder="Review page link" value="${esc(reviewUrl())}" style="flex-basis:100%">
       <input name="url" type="url" placeholder="Your site's CRM link" value="${esc(fub.url)}" style="flex-basis:100%">
-      <input name="passcode" type="password" placeholder="CRM passcode (same as CRM_PASSCODE on Vercel)" value="${esc(fub.passcode)}">
+      <span class="pw-wrap"><input name="passcode" type="password" autocomplete="current-password" autocapitalize="off" spellcheck="false" placeholder="CRM passcode (same as CRM_PASSCODE on Vercel)" value="${esc(fub.passcode)}"><button type="button" class="x" data-pw title="Show passcode" aria-label="Show passcode">👁</button></span>
       <button class="primary">Save settings</button>
     </form>
     <div class="btn-row"><button data-crm="test-fub">Test Follow Up Boss connection</button></div>
