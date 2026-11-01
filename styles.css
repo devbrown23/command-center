@@ -555,3 +555,12 @@ ul.list li.done .ds-check span { text-decoration: line-through; color: var(--mut
 .ds-test-form input[type="number"] { max-width: 130px; }
 .ds-tests { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); margin-top: 12px; }
 .ds-test { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: rgba(0, 0, 0, 0.18); }
+
+/* Stack & Smoke HQ (Dropship tab) */
+.ss-hq { border-top: 3px solid #e4572e; }
+.ss-hq h4 { margin: 10px 0 6px; font: 700 11px "Orbitron", sans-serif; letter-spacing: 1.5px; color: var(--muted); }
+.ss-grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); margin: 8px 0 12px; }
+.ss-weeks tr.ss-now td { background: rgba(228, 87, 46, 0.18); color: var(--text, #fff); font-weight: 600; }
+.ss-weeks tr.ss-past td { opacity: 0.45; }
+.ss-sub { width: 90px; }
+.ss-hq .btn-row a { text-decoration: none; padding: 6px 12px; font-size: 13px; }

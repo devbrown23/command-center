@@ -23,7 +23,7 @@ const BUSINESSES = [
   {
     id: "dropship",
     name: "Dropshipping",
-    subtitle: "Online store",
+    subtitle: "Stack & Smoke · stackandsmoke.com",
     color: "#8250df",
     pipelineName: "Products",
     itemLabel: "Product",

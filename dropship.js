@@ -1,4 +1,4 @@
-// Dropshipping hub for the Dropship tab: a Research → Build → Launch roadmap (following the Power of Three
+// Dropshipping hub for the Dropship tab: a Stack & Smoke store HQ (launch list, holiday plan, tool costs), a Research → Build → Launch roadmap (following the Power of Three
 // course), a product scorecard with real profit math, and an ad test log that says Kill, Keep or Scale.
 // Loaded before app.js. Uses state, save, render, uid, esc, money, todayStr and currentTab at runtime.
 
@@ -47,8 +47,134 @@ const DS_CHECKS = [
   ["video", "Easy to show in a 10-second video"],
 ];
 
+// ---------- Stack & Smoke store HQ ----------
+const SS = {
+  domain: "stackandsmoke.com",
+  blackFriday: "2026-11-27",
+  shipCutoff: "2026-12-15", // US-warehouse Christmas cutoff (confirm with supplier)
+  links: [
+    ["Store", "https://stackandsmoke.com"],
+    ["Shopify admin", "https://admin.shopify.com/store/shonenhype"],
+    ["Products", "https://admin.shopify.com/store/shonenhype/products"],
+    ["AutoDS", "https://platform.autods.com"],
+    ["Meta Ads Manager", "https://adsmanager.facebook.com"],
+    ["Marketing playbook", "https://claude.ai/artifact/Bn55h4wpTrpKcn2EPbEXu8"],
+    ["Theme code (GitHub)", "https://github.com/devbrown23/stack-and-smoke-theme"],
+  ],
+  weeks: [
+    ["2026-11-01", "2026-11-08", "Import products in AutoDS, set prices, build bundles, film cook #1", "$0"],
+    ["2026-11-09", "2026-11-15", "Theme + pages live, 1 organic video a day, email pop-up on", "$0"],
+    ["2026-11-16", "2026-11-22", "Ad tests: 3 hooks × Starter Stack, kill losers fast", "$30/day"],
+    ["2026-11-23", "2026-11-30", "Black Friday / Cyber Monday: 10% code, emails, scale winners", "$50–100/day"],
+    ["2026-12-01", "2026-12-07", "Gift guide push, stocking stuffers", "$50–100/day"],
+    ["2026-12-08", "2026-12-14", "\"Order by\" urgency, Green Monday (Dec 14)", "Hold or scale"],
+    ["2026-12-15", "2026-12-24", "Shipping cutoff, then gift-card / late-gift angle", "$10–20/day"],
+  ],
+  launch: [
+    ["s-name", "Rename store to Stack & Smoke"],
+    ["s-domain", "Buy stackandsmoke.com and set it as primary"],
+    ["s-archive", "Archive the 7 old products"],
+    ["s-collections", "Create the 5 collections + menus, About and FAQ pages"],
+    ["s-verify", "Verify the domain email (Gmail)"],
+    ["s-handles", "Claim @stackandsmoke on Instagram + TikTok"],
+    ["s-tm", "Trademark check: tmsearch.uspto.gov"],
+    ["s-autods", "Connect Stack & Smoke to the paid AutoDS account"],
+    ["s-import", "Import the 6 products in AutoDS as Draft (US warehouse)"],
+    ["s-dsers", "Uninstall DSers (saves $19.90/mo)"],
+    ["s-policies", "Fill Shipping + Return policy pages from supplier terms"],
+    ["s-bundles", "Install Shopify Bundles; build Starter Stack + Full Stack"],
+    ["s-theme", "Connect the GitHub theme, add photos, preview, publish"],
+    ["s-pixel", "Connect Facebook & Instagram channel (Meta pixel)"],
+    ["s-email", "Turn on email pop-up + welcome / abandoned-cart automations"],
+    ["s-test", "Place a test order end to end"],
+    ["s-film", "Film cook #1 from the shot list"],
+  ],
+  launchDone: ["s-name", "s-domain", "s-archive", "s-collections"],
+  subs: [
+    { name: "Shopify Basic", cost: 39 },
+    { name: "DSers (cancel)", cost: 19.9 },
+    { name: "AutoDS", cost: 0 },
+    { name: "Domain (stackandsmoke.com)", cost: 1.42 },
+  ],
+  // target costs from the sourcing plan; replace with real AutoDS numbers
+  products: [
+    ["The Starter Stack (bundle)", 26, 79, { wow: true, problem: true, video: true, stores: true }],
+    ["The Full Stack (bundle)", 40, 119, { wow: true, problem: true, video: true, stores: true }],
+    ["Wireless meat thermometer", 15, 44.99, { wow: true, problem: true, video: true }],
+    ["Heat-resistant gloves", 5, 14.99, { problem: true, video: true }],
+    ["Pellet smoke tube", 3, 9.99, { wow: true, video: true }],
+    ["BBQ spray bottle", 3, 9.99, { video: true }],
+    ["Bristle-free grill scraper", 6, 17.99, { problem: true, video: true }],
+    ["Marinade injector", 6, 17.99, { video: true }],
+  ],
+};
+
+function ssDays(to) {
+  const d = Math.ceil((new Date(to + "T00:00:00") - new Date(todayStr() + "T00:00:00")) / 86400000);
+  return d;
+}
+
+function renderStackSmoke(ds) {
+  const today = todayStr();
+  const done = SS.launch.filter(([id]) => ds.launch[id]).length;
+  const next = SS.launch.find(([id]) => !ds.launch[id]);
+  const bf = ssDays(SS.blackFriday), cut = ssDays(SS.shipCutoff);
+  const burn = ds.subs.reduce((a, x) => a + (Number(x.cost) || 0), 0);
+  const starter = ds.products.find((p) => /starter stack/i.test(p.name));
+  const perSale = starter ? dsMath(starter).profit : 0;
+  const salesToCover = perSale > 0 ? Math.ceil(burn / perSale) : null;
+  const weekRows = SS.weeks.map(([a, b, focus, spend], i) => {
+    const now = today >= a && today <= b;
+    return `<tr class="${now ? "ss-now" : today > b ? "ss-past" : ""}"><td>${i + 1}</td><td>${a.slice(5)} – ${b.slice(5)}</td><td>${esc(focus)}</td><td>${esc(spend)}</td></tr>`;
+  }).join("");
+
+  return `<div class="card ss-hq" style="margin-top:16px">
+    <div class="ds-phase-head"><h3>Stack & Smoke HQ</h3><a href="https://${SS.domain}" target="_blank" rel="noopener" class="muted">${SS.domain} ↗</a></div>
+    <p class="muted">Stack it. Smoke it. · Hero: The Starter Stack ($79) · Gifts for the grill guy → spring grilling.</p>
+    <div class="stats">
+      <div class="stat"><div class="label">Days to Black Friday</div><div class="value">${bf > 0 ? bf : bf === 0 ? "Today" : "–"}</div></div>
+      <div class="stat"><div class="label">Days to ship cutoff</div><div class="value ${cut <= 7 ? "neg" : ""}">${cut > 0 ? cut : "–"}</div></div>
+      <div class="stat"><div class="label">Launch list</div><div class="value">${done}/${SS.launch.length}</div></div>
+      <div class="stat"><div class="label">Tools / month</div><div class="value">${money(Math.round(burn * 100) / 100)}</div></div>
+      <div class="stat"><div class="label">Stacks to cover tools</div><div class="value">${salesToCover ?? "–"}</div></div>
+    </div>
+    ${next ? `<p class="ds-next"><span>NEXT</span> ${esc(next[1])}</p>` : `<p class="ds-next"><span>LIVE</span> Launch list done. Run the ad tests below.</p>`}
+    <div class="ss-grid">
+      <div>
+        <h4>Launch checklist</h4>
+        <div class="bar"><div style="width:${(done / SS.launch.length) * 100}%"></div></div>
+        <ul class="list">${SS.launch.map(([id, text]) => `<li class="${ds.launch[id] ? "done" : ""}"><label class="grow ds-check">
+          <input type="checkbox" data-ds="launch" data-id="${id}" ${ds.launch[id] ? "checked" : ""}> <span>${esc(text)}</span></label></li>`).join("")}</ul>
+      </div>
+      <div>
+        <h4>Holiday plan</h4>
+        <div class="ds-table-wrap"><table class="ds-table ss-weeks"><thead><tr><th>Wk</th><th>Dates</th><th>Focus</th><th>Ads</th></tr></thead><tbody>${weekRows}</tbody></table></div>
+        <h4 style="margin-top:14px">Monthly tools</h4>
+        <ul class="list">${ds.subs.map((x, i) => `<li><span class="grow">${esc(x.name)}</span>
+          <input type="number" step="any" min="0" class="ss-sub" data-ds="sub" data-i="${i}" value="${x.cost || ""}" placeholder="0">
+          <button class="x" data-ds="subdel" data-i="${i}" title="Delete">✕</button></li>`).join("")}</ul>
+        <form class="row" data-ds-form="sub"><input name="name" placeholder="Tool" required><input name="cost" type="number" step="any" min="0" placeholder="$/mo"><button class="primary">Add</button></form>
+      </div>
+    </div>
+    <div class="btn-row">${SS.links.map(([l, u]) => `<a class="btn ghost" href="${u}" target="_blank" rel="noopener">${esc(l)} ↗</a>`).join("")}</div>
+  </div>`;
+}
+
 function dsState(s) {
   s.ds = { road: {}, products: [], tests: [], ...(s.ds || {}) };
+  // one-time Stack & Smoke setup: launch list, tool costs and target-cost products
+  if (!s.ds.ssSeeded) {
+    s.ds.launch = Object.fromEntries(SS.launchDone.map((id) => [id, true]));
+    s.ds.subs = SS.subs.map((x) => ({ ...x }));
+    const have = new Set(s.ds.products.map((p) => p.name.toLowerCase()));
+    for (const [name, cost, price, checks] of SS.products) {
+      if (!have.has(name.toLowerCase())) s.ds.products.push({ id: uid(), name, cost, ship: 0, price, link: "", stage: "Researching", checks });
+    }
+    Object.assign(s.ds.road, { "b-trial": true, "b-settings": true, "r-score": true });
+    s.ds.ssSeeded = true;
+  }
+  s.ds.launch = s.ds.launch || {};
+  s.ds.subs = s.ds.subs || [];
   // one-time move of old Products board items into the scorecard
   if (!s.ds.migrated) {
     for (const p of s.pipeline || []) {
@@ -154,6 +280,7 @@ function renderDropship(s) {
   }).join("");
 
   return `<div class="ds">
+    ${renderStackSmoke(ds)}
     <div class="card ds-road" style="margin-top:16px;--tab:#8250df">
       <div class="ds-phase-head"><h3>Store build: Research → Build → Launch</h3><span class="muted">${done}/${total} done</span></div>
       <div class="bar"><div style="width:${(done / total) * 100}%"></div></div>
@@ -213,6 +340,8 @@ function renderDropship(s) {
     const d = ds();
     const p = d.products.find((x) => x.id === el.dataset.id);
     if (a === "road") d.road[el.dataset.id] = el.checked;
+    else if (a === "launch") d.launch[el.dataset.id] = el.checked;
+    else if (a === "sub" && d.subs[el.dataset.i]) d.subs[el.dataset.i].cost = Math.max(0, Number(el.value) || 0);
     else if (a === "pcheck" && p) p.checks = { ...(p.checks || {}), [el.dataset.k]: el.checked };
     else if (a === "pnum" && p) p[el.dataset.k] = Math.max(0, Number(el.value) || 0);
     else if (a === "pstage" && p) p.stage = el.value;
@@ -228,6 +357,8 @@ function renderDropship(s) {
     if (b.dataset.ds === "pdel" && confirm("Delete this product and its test days?")) {
       d.products = d.products.filter((x) => x.id !== b.dataset.id);
       d.tests = d.tests.filter((x) => x.productId !== b.dataset.id);
+    } else if (b.dataset.ds === "subdel") {
+      d.subs.splice(Number(b.dataset.i), 1);
     } else if (b.dataset.ds === "tdel" && confirm("Delete this day? (Money in/out entries stay.)")) {
       d.tests = d.tests.filter((x) => x.id !== b.dataset.id);
     } else return;
@@ -240,7 +371,9 @@ function renderDropship(s) {
     const f = Object.fromEntries(new FormData(e.target));
     const d = ds();
     const n = (x) => Math.max(0, Number(x) || 0);
-    if (e.target.dataset.dsForm === "product") {
+    if (e.target.dataset.dsForm === "sub") {
+      d.subs.push({ name: f.name.trim(), cost: n(f.cost) });
+    } else if (e.target.dataset.dsForm === "product") {
       d.products.push({ id: uid(), name: f.name.trim(), cost: n(f.cost), ship: n(f.ship), price: n(f.price), link: f.link || "", stage: "Researching", checks: {} });
     } else {
       const p = d.products.find((x) => x.id === f.productId);
