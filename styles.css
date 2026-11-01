@@ -523,3 +523,35 @@ body.spar-open { overflow: hidden; }
   .spar-center canvas { width: min(40vh, 90vw); height: min(40vh, 90vw); }
 }
 @media (prefers-reduced-motion: reduce) { .spar-sticker, .spar-pcard, .spar-msg { transform: none !important; } }
+
+/* ---------- Dropship hub ---------- */
+body[data-tab="dropship"] main { max-width: none; padding: 16px clamp(16px, 2.5vw, 48px); }
+.ds-phase-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.ds-phase-head h3 { margin: 0; }
+.ds-next { margin: 12px 0; font-size: 16px; }
+.ds-next span { font: 700 10px "Orbitron", sans-serif; letter-spacing: 2px; background: var(--gold); color: #1a0605; padding: 3px 8px; border-radius: 6px; margin-right: 6px; vertical-align: middle; }
+.ds-phases { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); margin: 12px 0; }
+.ds-phase { border: 1px solid var(--line); border-top: 3px solid var(--ph); border-radius: 12px; padding: 12px; background: rgba(0, 0, 0, 0.18); }
+.ds-phase .bar { margin: 8px 0; }
+.ds-check { display: flex; gap: 8px; align-items: flex-start; cursor: pointer; }
+.ds-check input { margin-top: 4px; }
+ul.list li.done .ds-check span { text-decoration: line-through; color: var(--muted); }
+.ds-road .btn-row a { text-decoration: none; padding: 6px 12px; font-size: 13px; }
+.ds-table-wrap { overflow-x: auto; }
+.ds-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.ds-table th { text-align: left; font: 700 10px "Orbitron", sans-serif; letter-spacing: 1.5px; color: var(--muted); padding: 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.ds-table td { padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.ds-table td input[type="number"] { width: 84px; }
+.ds-table a { color: var(--cyan); }
+.ds-checks { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px; font-size: 12px; color: var(--muted); }
+.ds-checks label { display: inline-flex; gap: 4px; align-items: center; cursor: pointer; }
+.ds-score { display: inline-block; min-width: 38px; text-align: center; font: 700 13px "Orbitron", sans-serif; padding: 3px 8px; border-radius: 8px; background: rgba(255, 210, 63, 0.15); color: var(--gold); }
+.ds-score.good { background: rgba(61, 255, 168, 0.15); color: var(--good); }
+.ds-score.bad { background: rgba(255, 92, 122, 0.15); color: var(--bad); }
+.ds-verdict { display: inline-block; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); white-space: nowrap; cursor: help; }
+.ds-verdict.pos { color: var(--good); border-color: rgba(61, 255, 168, 0.5); }
+.ds-verdict.neg { color: var(--bad); border-color: rgba(255, 92, 122, 0.5); }
+.ds-test-form { flex-wrap: wrap; }
+.ds-test-form input[type="number"] { max-width: 130px; }
+.ds-tests { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); margin-top: 12px; }
+.ds-test { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: rgba(0, 0, 0, 0.18); }
