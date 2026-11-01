@@ -264,74 +264,50 @@ a.btn.primary:hover { filter: brightness(1.1); }
 .dial-tips ul { margin: 6px 0 0 18px; padding: 0; }
 .dial-tips a { color: var(--cyan); }
 
-/* ---------- Hub (Overview) ---------- */
-.hub { position: relative; height: 700px; margin: 0 0 20px; border: 1px solid var(--line); border-radius: 22px; overflow: hidden;
-  background: radial-gradient(circle at 50% 50%, rgba(94, 234, 255, 0.10), transparent 45%), linear-gradient(180deg, rgba(3, 7, 18, 0.65), rgba(6, 26, 51, 0.55));
-  box-shadow: inset 0 0 80px rgba(94, 234, 255, 0.06); }
-.hub::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .35;
-  background-image: linear-gradient(rgba(94, 234, 255, 0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(94, 234, 255, 0.07) 1px, transparent 1px);
-  background-size: 34px 34px; mask-image: radial-gradient(circle at 50% 50%, #000 30%, transparent 75%); }
+/* ---------- Hub (Overview): amber hologram ---------- */
+.hub { --amber: #ffaa3c; --amber-hot: #ffd08a; position: relative; height: 720px; margin: 0 0 20px; border: 1px solid rgba(255, 170, 60, 0.22); border-radius: 22px; overflow: hidden;
+  background: radial-gradient(circle at 50% 50%, rgba(255, 140, 30, 0.14), transparent 42%), linear-gradient(180deg, #0a0602, #050302 60%, #0b0703);
+  box-shadow: inset 0 0 90px rgba(255, 140, 30, 0.07), 0 0 40px rgba(255, 140, 30, 0.06); }
+.hub::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .5;
+  background-image: linear-gradient(rgba(255, 170, 60, 0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 170, 60, 0.06) 1px, transparent 1px);
+  background-size: 34px 34px; mask-image: radial-gradient(circle at 50% 50%, #000 25%, transparent 75%); }
+.hub::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, rgba(255, 170, 60, 0.025) 0 1px, transparent 1px 3px); }
 .hub-lines { position: absolute; inset: 0; width: 100%; height: 100%; }
-.hub-lines line { stroke: var(--c); stroke-width: 1.2; opacity: .22; vector-effect: non-scaling-stroke; stroke-dasharray: 4 6; animation: hubflow 1.6s linear infinite; transition: opacity .2s, stroke-width .2s; }
+.hub-lines line { stroke: var(--amber); stroke-width: 1; opacity: .25; vector-effect: non-scaling-stroke; stroke-dasharray: 3 7; animation: hubflow 1.6s linear infinite; transition: opacity .2s, stroke-width .2s; }
 .hub.focus .hub-lines line { opacity: .08; }
-.hub .hub-lines line.on { opacity: .95; stroke-width: 2.2; filter: drop-shadow(0 0 4px var(--c)); }
+.hub .hub-lines line.on { opacity: 1; stroke-width: 2; stroke: var(--amber-hot); filter: drop-shadow(0 0 5px var(--amber)); }
 @keyframes hubflow { to { stroke-dashoffset: -20; } }
 
-.hub-center { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 330px; text-align: center; pointer-events: none; }
-.hub-core { width: 330px; height: 330px; display: block; overflow: visible; }
-.hub-readout { position: absolute; left: 26px; top: 22px; text-align: left; z-index: 1; padding-left: 12px; border-left: 2px solid var(--cyan); }
-.hub-clock { font-family: "Orbitron", sans-serif; font-size: 30px; font-weight: 800; color: #eaffff; text-shadow: 0 0 16px rgba(94, 234, 255, 0.8); letter-spacing: 2px; }
-.hub-date { font-size: 12px; letter-spacing: 3px; text-transform: uppercase; color: var(--cyan); opacity: .8; }
-.hub-hello { margin-top: 4px; font-size: 13px; color: var(--muted); }
+.hub-center { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 440px; height: 440px; pointer-events: none; }
+#hub-holo { width: 100%; height: 100%; display: block; }
+.hub-readout { position: absolute; left: 26px; top: 22px; text-align: left; z-index: 1; padding-left: 12px; border-left: 2px solid var(--amber); }
+.hub-clock { font-family: "Orbitron", sans-serif; font-size: 30px; font-weight: 800; color: var(--amber-hot); text-shadow: 0 0 16px rgba(255, 150, 40, 0.8); letter-spacing: 2px; }
+.hub-date { font-size: 12px; letter-spacing: 3px; text-transform: uppercase; color: var(--amber); opacity: .85; }
+.hub-hello { margin-top: 4px; font-size: 13px; color: #c8a57a; }
 
-.hub-ring { fill: none; stroke: var(--cyan); }
-.hub-ring.faint { stroke-opacity: .15; }
-.hub-ring.dots { stroke-width: 2; stroke-dasharray: 1 7; stroke-linecap: round; stroke-opacity: .7; }
-.hub-ring.dashes { stroke-width: 3; stroke-dasharray: 38 12; stroke-opacity: .45; }
-.hub-ring.arcs { stroke-width: 5; stroke-dasharray: 110 60 18 60 50 230; stroke-opacity: .65; filter: drop-shadow(0 0 4px #5eeaff); }
-.hub-ring.arcs.pink { stroke: var(--pink); stroke-dasharray: 0 280 60 200; stroke-opacity: .7; filter: drop-shadow(0 0 4px #ff4fd8); }
-.hub-ticks line { stroke: var(--cyan); stroke-opacity: .45; stroke-width: 1; }
-.hub-dot { fill: #eaffff; filter: drop-shadow(0 0 5px #5eeaff); }
-.hub-dot.gold { fill: var(--gold); filter: drop-shadow(0 0 5px #ffd23f); }
-.hub-dot.pink { fill: var(--pink); filter: drop-shadow(0 0 5px #ff4fd8); }
-.hub-orb { filter: drop-shadow(0 0 22px rgba(94, 234, 255, 0.85)); animation: hubpulse 3.2s ease-in-out infinite; transform-origin: center; }
-.hub-globe ellipse, .hub-globe line { fill: none; stroke: #eaffff; stroke-opacity: .35; stroke-width: .8; }
-.hub-spin-xslow { animation: hubspin 90s linear infinite; }
-.hub-spin-slow { animation: hubspin 40s linear infinite; }
-.hub-spin-med { animation: hubspin 18s linear infinite; }
-.hub-spin-fast { animation: hubspin 7s linear infinite; }
-.hub-spin-rev { animation: hubspin 26s linear infinite reverse; }
-.hub-spin-rev-fast { animation: hubspin 10s linear infinite reverse; }
-.hub-spin-sweep { animation: hubspin 5s linear infinite; }
-.hub-pulse-slow { animation: hubpulse 5s ease-in-out infinite; transform-origin: center; }
-@keyframes hubspin { to { transform: rotate(360deg); } }
-@keyframes hubpulse { 50% { transform: scale(1.06); opacity: .85; } }
-
-.hub-tile { position: absolute; left: var(--x); top: var(--y); transform: translate(-50%, -50%); width: 176px; padding: 12px 14px; text-align: left;
-  display: flex; flex-direction: column; gap: 2px; cursor: pointer; color: var(--text);
-  background: linear-gradient(135deg, rgba(10, 22, 44, 0.92), rgba(3, 7, 18, 0.92));
-  border: 1px solid color-mix(in srgb, var(--c) 55%, transparent); border-radius: 12px;
-  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.02), 0 0 18px color-mix(in srgb, var(--c) 18%, transparent);
+.hub-tile { position: absolute; left: var(--x); top: var(--y); transform: translate(-50%, -50%); width: 178px; padding: 12px 14px; text-align: left;
+  display: flex; flex-direction: column; gap: 2px; cursor: pointer; color: #fbe9d0;
+  background: linear-gradient(135deg, rgba(40, 22, 6, 0.85), rgba(10, 6, 2, 0.92));
+  border: 1px solid rgba(255, 170, 60, 0.45); border-radius: 0;
+  clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
+  box-shadow: 0 0 18px rgba(255, 140, 30, 0.12), inset 0 0 20px rgba(255, 140, 30, 0.06);
   animation: hubin .6s cubic-bezier(.2, .8, .2, 1) both; animation-delay: var(--d); transition: transform .18s, box-shadow .18s, background .18s; }
-.hub-tile:hover { transform: translate(-50%, -50%) scale(1.07); background: linear-gradient(135deg, color-mix(in srgb, var(--c) 22%, #0a162c), rgba(3, 7, 18, 0.95));
-  box-shadow: 0 0 28px color-mix(in srgb, var(--c) 55%, transparent); }
-.hub-tile::after { content: ""; position: absolute; top: 8px; right: 10px; width: 6px; height: 6px; border-radius: 50%; background: var(--c); box-shadow: 0 0 8px var(--c); }
-.hub-tile.alert::after { background: var(--gold); box-shadow: 0 0 10px var(--gold); animation: dialpulse 1.2s infinite; }
-.hub-tile-name { font-family: "Orbitron", sans-serif; font-size: 10.5px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--c); padding-right: 12px; }
-.hub-tile-big { font-family: "Orbitron", sans-serif; font-size: 20px; font-weight: 700; color: #fff; }
-.hub-tile-big.neg { color: var(--bad); }
-.hub-tile-small { font-size: 12px; color: var(--muted); }
+.hub-tile:hover { border-color: var(--amber-hot); transform: translate(-50%, -50%) scale(1.07); background: linear-gradient(135deg, rgba(120, 62, 12, 0.6), rgba(20, 10, 2, 0.95));
+  box-shadow: 0 0 30px rgba(255, 150, 40, 0.5), inset 0 0 24px rgba(255, 150, 40, 0.15); }
+.hub-tile::after { content: ""; position: absolute; top: 9px; right: 11px; width: 6px; height: 6px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 8px var(--amber); opacity: .6; }
+.hub-tile.alert::after { background: #ff5a2a; box-shadow: 0 0 10px #ff5a2a; opacity: 1; animation: dialpulse 1.2s infinite; }
+.hub-tile-name { font-family: "Orbitron", sans-serif; font-size: 10.5px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--amber); padding-right: 12px; }
+.hub-tile-big { font-family: "Orbitron", sans-serif; font-size: 18px; font-weight: 700; color: #fff4e2; text-shadow: 0 0 10px rgba(255, 150, 40, 0.35); }
+.hub-tile-small { font-size: 12px; color: #c8a57a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @keyframes hubin { from { opacity: 0; transform: translate(calc(-50% + (50% - var(--x)) * .9), calc(-50% + (50% - var(--y)) * .9)) scale(.4); } }
 
 @media (max-width: 1240px) {
   .hub { height: auto; padding: 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
   .hub-lines { display: none; }
-  .hub-center { position: relative; left: auto; top: auto; transform: none; grid-column: 1 / -1; margin: 0 auto 4px; width: 260px; }
+  .hub-center { position: relative; left: auto; top: auto; transform: none; grid-column: 1 / -1; margin: 0 auto; width: 300px; height: 300px; }
   .hub-readout { position: static; grid-column: 1 / -1; order: -1; text-align: center; border-left: 0; padding: 0; }
-  .hub-core { width: 260px; height: 260px; }
   .hub-tile { position: relative; left: auto; top: auto; transform: none; width: auto; animation-name: hubfade; }
-  .hub-tile:hover { transform: scale(1.03); }
+  .hub-tile:hover { border-color: var(--amber-hot); transform: scale(1.03); }
 }
 @keyframes hubfade { from { opacity: 0; transform: translateY(8px); } }
 @media (prefers-reduced-motion: reduce) { .hub *, .hub-tile { animation: none !important; } }
