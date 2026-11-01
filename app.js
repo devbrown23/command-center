@@ -132,6 +132,7 @@ function load() {
     data[biz.id] = { ...emptyBusiness(biz), ...(data[biz.id] || {}) };
   }
   data.crm = { ...defaultCrm(), ...(data.crm || {}) };
+  data.dialer = { ...defaultDialer(), ...(data.dialer || {}) };
   return data;
 }
 
@@ -196,6 +197,7 @@ function renderTabs() {
   const tabs = [
     { id: "overview", name: "Overview", color: "var(--accent)" },
     { id: "crm", name: "Daily 20 CRM", color: "#1f6feb" },
+    { id: "dialer", name: "Dialer", color: "#3dffa8" },
     { id: "inbox", name: "Inbox", color: "#ff4fd8" },
     ...BUSINESSES,
   ];
@@ -391,11 +393,12 @@ function renderVideos(biz, s, today) {
 }
 
 function render() {
-  if (!["overview", "crm", "inbox"].includes(currentTab) && !BUSINESSES.some((b) => b.id === currentTab)) currentTab = "overview";
+  if (!["overview", "crm", "dialer", "inbox"].includes(currentTab) && !BUSINESSES.some((b) => b.id === currentTab)) currentTab = "overview";
   renderTabs();
   const biz = BUSINESSES.find((b) => b.id === currentTab);
   const view = document.getElementById("view");
   if (currentTab === "crm") view.innerHTML = renderCrm();
+  else if (currentTab === "dialer") view.innerHTML = renderDialer();
   else if (currentTab === "inbox") view.innerHTML = renderInbox();
   else view.innerHTML = biz ? renderBusiness(biz) : renderOverview();
 }
