@@ -35,6 +35,8 @@ The **Inbox** tab connects to Gmail in the browser (Google OAuth client ID in In
 
 Each business has its own tab for monthly income, expenses and a profit goal, a to-do list, a pipeline board, quick links and notes. The Overview tab shows totals across all the businesses.
 
+Look and navigation: the app uses an amber hologram theme. The Overview opens on an animated hub with a tile for every tab (tasks and follow-ups only, no dollar amounts) and three gauges. The hidden **MENU** tab on the left edge (or the ` key) lists every tab in order with quick actions, and can hide the top tab bar. Red haki lightning crackles around the Daily 20 and Dialer and bursts when you set an appointment or hit your Daily 20.
+
 ## Use it
 
 Open `index.html` in a browser, or turn on GitHub Pages (Settings → Pages → Deploy from branch → `main` / root). The site will then be at `https://devbrown23.github.io/command-center/`.

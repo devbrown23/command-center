@@ -375,6 +375,7 @@ function recordOutcome(lead, outcomeId, phoneNumber) {
   }
 
   let c = null;
+  if (o.id === "appointment" && window.hakiBurst) window.hakiBurst();
   if (o.crm) c = dialerAddToCrm(lead, o.crm);
   // Real conversations count toward the Daily 20.
   if (o.talked) logTouch("call", c ? c.id : null);
@@ -952,7 +953,7 @@ function renderDialer() {
   const hoursOk = inCallingHours();
   const listOpts = d.lists.map((l) => `<option value="${l.id}" ${dialerListFilter === l.id ? "selected" : ""}>${esc(l.name)}</option>`).join("");
 
-  const statsCard = `<div class="card"><div class="stats">
+  const statsCard = `<div class="card" data-haki="1"><div class="stats">
       <div class="stat"><div class="label">Dials today</div><div class="value">${log.length}</div></div>
       <div class="stat"><div class="label">Conversations</div><div class="value">${talked}</div></div>
       <div class="stat"><div class="label">Appointments</div><div class="value pos">${appts}</div></div>

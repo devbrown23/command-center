@@ -12,8 +12,9 @@ function hubTiles() {
   const today = todayStr();
   const tiles = [];
   const talks = typeof touchesOn === "function" ? touchesOn(today) : 0;
+  const target = state.crm?.dailyTarget || 20;
   const due = (state.crm?.contacts || []).filter((c) => c.nextFollowUp && c.nextFollowUp <= today).length;
-  tiles.push({ id: "crm", name: "Daily 20 CRM", big: plural(due, "follow-up"), small: `${talks}/20 conversations today`, alert: due > 0 });
+  tiles.push({ id: "crm", name: "Daily 20 CRM", big: plural(due, "follow-up"), small: `${talks}/${target} conversations today`, alert: due > 0 });
   const callbacks = (state.dialer?.leads || []).filter((l) => typeof callbackDue === "function" && callbackDue(l)).length;
   const queue = typeof queueLeads === "function" ? queueLeads().length : 0;
   tiles.push({ id: "dialer", name: "Dialer", big: plural(callbacks, "callback"), small: `${queue} in the call queue`, alert: callbacks > 0 });
@@ -35,22 +36,54 @@ function renderHub() {
   const lines = pos.map((p, i) => `<line data-i="${i}" x1="50" y1="50" x2="${p.x.toFixed(2)}" y2="${p.y.toFixed(2)}"/>`).join("");
   const now = new Date();
   const talks = typeof touchesOn === "function" ? touchesOn(todayStr()) : 0;
+  const target = state.crm?.dailyTarget || 20;
   setTimeout(startHubHologram, 0);
   return `<section class="hub" id="hub">
     <svg class="hub-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${lines}</svg>
     <div class="hub-readout">
       <div class="hub-clock" id="hub-clock">${now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</div>
       <div class="hub-date">${now.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}</div>
-      <div class="hub-hello">${hubGreeting()}, Devin · ${talks >= 20 ? "Daily 20 done ✓" : `${20 - talks} conversations to go`}</div>
+      <div class="hub-hello">${hubGreeting()}, Devin · ${talks >= target ? "Daily 20 done ✓" : `${target - talks} conversations to go`}</div>
     </div>
     <div class="hub-center"><canvas id="hub-holo" aria-hidden="true"></canvas></div>
-    ${tiles.map((t, i) => `<button class="hub-tile ${t.alert ? "alert" : ""}" data-goto="${t.id}" data-i="${i}"
+    ${hubGauges(tiles)}
+    ${tiles.map((t, i) => `<button class="hub-tile ${t.alert ? "alert" : ""}" data-goto="${t.id}" data-i="${i}" ${t.id === "crm" || t.id === "dialer" ? 'data-haki="1"' : ""}
         style="--x:${pos[i].x.toFixed(2)}%;--y:${pos[i].y.toFixed(2)}%;--d:${i * 70}ms">
         <span class="hub-tile-name">${esc(t.name)}</span>
         <span class="hub-tile-big">${esc(t.big)}</span>
         <span class="hub-tile-small">${esc(t.small)}</span>
       </button>`).join("")}
   </section>`;
+}
+
+// ---------- corner gauges ----------
+
+function hubGauge(cls, value, max, big, label, sub, haki) {
+  const r = 40, C = 2 * Math.PI * r, f = max ? Math.min(1, value / max) : 0;
+  return `<div class="hub-gauge ${cls}" ${haki ? 'data-haki="1"' : ""}>
+    <svg viewBox="-50 -50 100 100" aria-hidden="true">
+      <circle r="46" class="g-tick"/>
+      <circle r="${r}" class="g-track"/>
+      <circle r="${r}" class="g-fill" stroke-dasharray="${(C * f).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90)"/>
+      <circle r="31" class="g-inner"/>
+    </svg>
+    <div class="g-num">${esc(big)}</div>
+    <div class="g-label">${esc(label)}</div>
+    <div class="g-sub">${esc(sub)}</div>
+  </div>`;
+}
+
+function hubGauges(tiles) {
+  const today = todayStr();
+  const talks = typeof touchesOn === "function" ? touchesOn(today) : 0;
+  const target = state.crm?.dailyTarget || 20;
+  const dials = (state.dialer?.log || []).filter((x) => x.date === today).length;
+  const goal = (typeof dialerSettings === "function" && dialerSettings().session?.goalDials) || 50;
+  const tasks = BUSINESSES.reduce((n, b) => n + (state[b.id]?.todos || []).filter((x) => !x.done).length, 0);
+  const done = BUSINESSES.reduce((n, b) => n + (state[b.id]?.todos || []).filter((x) => x.done).length, 0);
+  return hubGauge("tr", talks, target, String(talks), "Daily 20", `${Math.max(0, target - talks)} to go`) +
+    hubGauge("bl", done, done + tasks, String(tasks), "Open tasks", `${done} done`) +
+    hubGauge("br", dials, goal, String(dials), "Dials", `goal ${goal}`);
 }
 
 // ---------- amber wireframe hologram (canvas) ----------
