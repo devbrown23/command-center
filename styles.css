@@ -254,3 +254,12 @@ a.btn.primary:hover { filter: brightness(1.1); }
 .dial-queue ul.list { max-height: 520px; overflow: auto; }
 .dial-queue li.on { background: rgba(94, 234, 255, 0.08); }
 .dial-row { display: flex; flex-direction: column; align-items: flex-start; text-align: left; color: var(--text); width: 100%; }
+.dial-session { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 10px; padding: 10px 12px; border: 1px solid rgba(255, 210, 63, 0.45); border-radius: 10px; }
+.dial-session [data-dial="practice"] { margin-left: auto; }
+.dial-bar { display: inline-block; width: 80px; height: 6px; border-radius: 3px; background: var(--line); vertical-align: middle; margin-left: 6px; overflow: hidden; }
+.dial-bar span { display: block; height: 100%; background: var(--good); }
+.dial-pre, .dial-obj pre { white-space: pre-wrap; font: inherit; line-height: 1.6; margin: 8px 0; }
+.dial-obj { border-bottom: 1px solid var(--line); padding: 8px 0; }
+.dial-obj summary { cursor: pointer; font-weight: 600; }
+.dial-tips ul { margin: 6px 0 0 18px; padding: 0; }
+.dial-tips a { color: var(--cyan); }
