@@ -44,6 +44,33 @@ IF THEY ASK NOT TO BE CALLED
 
 GOAL: get them talking about their plans and book a home value appointment. Don't try to close on the first call.`;
 
+// Objection cards: one per block, first line is what they say, the rest is your answer. Blank line between cards.
+const DEFAULT_OBJECTIONS = `How did you get my number?
+It's from public property records for homes around {street}. I only call neighbors near recent sales. If you'd rather I not call, I'll take you off my list right now. Otherwise, quick question: have you seen what homes nearby are going for?
+
+I'm not selling.
+Totally fair, most people I talk to aren't. I'm just keeping neighbors in the loop on values. If you ever did move, would it be in the next couple of years or more like five-plus?
+
+Just send me something.
+Happy to. Is text or email better? And so I send the right numbers, have you done any updates, like the kitchen, roof or bathrooms?
+
+Are you trying to list my house?
+Only if it ever makes sense for you. Today I'm just sharing what's selling nearby. If the numbers surprised you, would you want to know what yours could bring?
+
+I already have an agent.
+That's great, glad you're taken care of. Are you working with them on a move right now, or are they someone you'd call down the road?
+
+What's my home worth?
+Great question, and I want to give you a real number, not a guess. A quick 15-minute walkthrough lets me account for your updates. Is earlier or later in the week better?
+
+Now's not a good time.
+No problem at all. Is later today or tomorrow better? (Tap Call back and set the date.)`;
+
+const DEFAULT_VM = `Hi {first}, this is Devin Brown with Unique Lifestyle Realty, {myphone}. I'm calling neighbors around {street} because a few homes nearby just sold, and I put together a free home value update for your place. Call or text me back at {myphone} and I'll send it over. Again, Devin Brown, {myphone}. Have a great day.`;
+
+const DEFAULT_SMS = `Hi {first}, it's Devin Brown with Unique Lifestyle Realty. Thanks for chatting today! Here's the home value update for {address} I mentioned: {report}
+Reply STOP and I won't text again.`;
+
 let dialerCurrentId = null;
 let dialerFilter = "queue";   // queue | callbacks | all
 let dialerListFilter = "";    // "" = all lists
@@ -56,9 +83,20 @@ let telnyxTokenAt = 0;
 let dialerLineMsg = "";
 let dialerMuted = false;
 let dialerSetupOpen = null; // remembers whether the settings panel is open between redraws
+let dialerStatsRange = "7";   // today | 7 | 30 | all
+let dialerCircle = null;      // { address, num, street, kind } when circle prospecting
+let dialerVm = undefined;     // { blob, secs, at } recorded voicemail on this device; undefined = not loaded yet
+let dialerVmRec = null;       // { recorder, chunks, startedAt } while recording
+let dialerVmMsg = "";
+let dialerDncMsg = "";
+let dialerPractice = null;    // { lead, step, startedAt, openerSecs, obj, reveal } while practicing
 
 function defaultDialer() {
-  return { lists: [], leads: [], dnc: [], log: [], script: DEFAULT_SCRIPT };
+  return {
+    lists: [], leads: [], dnc: [], log: [], script: DEFAULT_SCRIPT,
+    objections: DEFAULT_OBJECTIONS, vmScript: DEFAULT_VM, smsTemplate: DEFAULT_SMS,
+    reportLink: "", myPhone: "(803) 658-1509", autoFub: true,
+  };
 }
 
 function dialerSettings() {
@@ -141,7 +179,34 @@ function queueLeads() {
   return [...due, ...rest];
 }
 
+// ---------- circle prospecting ----------
+
+const STREET_WORDS = {
+  SOUTH: "S", NORTH: "N", EAST: "E", WEST: "W", SOUTHEAST: "SE", SOUTHWEST: "SW", NORTHEAST: "NE", NORTHWEST: "NW",
+  AVENUE: "AVE", AV: "AVE", STREET: "ST", ROAD: "RD", DRIVE: "DR", BOULEVARD: "BLVD", PLACE: "PL", COURT: "CT",
+  LANE: "LN", TERRACE: "TER", WAY: "WAY", CIRCLE: "CIR", PARKWAY: "PKWY", HIGHWAY: "HWY",
+};
+
+// "1201 South Union Avenue #2" -> { num: 1201, street: "S UNION AVE" }
+function parseStreetAddress(addr) {
+  const clean = String(addr || "").toUpperCase().replace(/[.,]/g, " ").replace(/\s+(APT|UNIT|STE|SUITE|#)\s*\S*$/, "").replace(/#\S*$/, "").trim();
+  const m = clean.match(/^(\d+)[A-Z-]*\s+(.+)$/);
+  if (!m) return null;
+  const street = m[2].split(/\s+/).map((w) => STREET_WORDS[w] || w).join(" ").trim();
+  return { num: parseInt(m[1], 10), street };
+}
+
+function circleLeads(base) {
+  if (!dialerCircle) return [];
+  return base
+    .map((l) => ({ l, a: parseStreetAddress(l.address) }))
+    .filter((x) => x.a && x.a.street === dialerCircle.street && x.a.num !== dialerCircle.num)
+    .sort((x, y) => Math.abs(x.a.num - dialerCircle.num) - Math.abs(y.a.num - dialerCircle.num))
+    .map((x) => x.l);
+}
+
 function visibleLeads() {
+  if (dialerFilter === "circle") return circleLeads(state.dialer.leads.filter(inQueue));
   const leads = state.dialer.leads.filter((l) => !dialerListFilter || l.listId === dialerListFilter);
   if (dialerFilter === "callbacks") return leads.filter((l) => l.status === "callback").sort((a, b) => (a.callbackDate || "").localeCompare(b.callbackDate || ""));
   if (dialerFilter === "all") return leads;
@@ -289,7 +354,8 @@ function recordOutcome(lead, outcomeId, phoneNumber) {
   lead.lastOutcome = o.label;
   lead.attempts = (lead.attempts || 0) + 1;
   const secs = dialerCall && dialerCall.leadId === lead.id && dialerCall.connectedAt ? Math.round((Date.now() - dialerCall.connectedAt) / 1000) : 0;
-  state.dialer.log.push({ id: uid(), date: today, leadId: lead.id, outcome: o.id, phone: phoneNumber || "", secs, line: dialerSettings().mode });
+  const now = new Date();
+  state.dialer.log.push({ id: uid(), date: today, ts: now.getTime(), hour: now.getHours(), leadId: lead.id, listId: lead.listId, outcome: o.id, phone: phoneNumber || "", secs, line: dialerSettings().mode });
 
   if (o.id === "no_answer" || o.id === "voicemail") {
     lead.status = lead.attempts >= MAX_ATTEMPTS ? "done" : "retry";
@@ -315,6 +381,284 @@ function recordOutcome(lead, outcomeId, phoneNumber) {
   // Set the follow-up after logTouch, which would otherwise replace it with the stage default.
   if (c) c.nextFollowUp = o.id === "callback" ? lead.callbackDate : addDays(today, o.id === "appointment" ? 1 : 3);
   save();
+  // Hot leads go straight to Follow Up Boss when it's connected (once per contact).
+  if (c && state.dialer.autoFub !== false && fubSettings().passcode && c.fub !== "synced" && c.fub !== "pending") sendToFub(c);
+}
+
+// ---------- stats ----------
+
+function statsLog() {
+  const log = state.dialer.log;
+  if (dialerStatsRange === "all") return log;
+  if (dialerStatsRange === "today") return todayLog();
+  const from = addDays(todayStr(), -(parseInt(dialerStatsRange, 10) - 1));
+  return log.filter((x) => x.date >= from);
+}
+
+const isTalk = (x) => !!OUTCOMES.find((o) => o.id === x.outcome)?.talked;
+const pct = (a, b) => (b ? Math.round((a / b) * 100) + "%" : "–");
+
+// Counts people, not dials: someone dialed 3 times and reached once is 1 person, 1 contact.
+function summarize(log) {
+  const people = new Set(log.map((x) => x.leadId));
+  const reached = new Set(log.filter(isTalk).map((x) => x.leadId));
+  const appts = log.filter((x) => x.outcome === "appointment").length;
+  return { dials: log.length, people: people.size, reached: reached.size, appts };
+}
+
+function renderStats() {
+  const log = statsLog();
+  const s = summarize(log);
+  const byHour = {};
+  for (const x of log) {
+    if (x.hour === undefined) continue;
+    const h = (byHour[x.hour] = byHour[x.hour] || { dials: 0, talks: 0 });
+    h.dials++;
+    if (isTalk(x)) h.talks++;
+  }
+  const hours = Object.entries(byHour).filter(([, v]) => v.dials >= 5)
+    .sort((a, b) => b[1].talks / b[1].dials - a[1].talks / a[1].dials).slice(0, 3)
+    .map(([h, v]) => { const n = +h; const lbl = `${n % 12 || 12}${n < 12 ? "am" : "pm"}`; return `${lbl} (${pct(v.talks, v.dials)} answer)`; });
+  const lists = state.dialer.lists.map((l) => {
+    const ls = summarize(log.filter((x) => (x.listId || state.dialer.leads.find((d) => d.id === x.leadId)?.listId) === l.id));
+    return ls.dials ? `<li><div class="grow"><strong>${esc(l.name)}</strong><div class="muted">${ls.dials} dials · ${ls.reached}/${ls.people} people reached (${pct(ls.reached, ls.people)}) · ${ls.appts} appts</div></div></li>` : "";
+  }).join("");
+  const opt = (v, t) => `<option value="${v}" ${dialerStatsRange === v ? "selected" : ""}>${t}</option>`;
+  return `<details class="card" style="margin-top:16px"><summary><strong>Results: contacts, not dials</strong></summary>
+    <div class="row" style="margin:8px 0"><select id="dial-range">${opt("today", "Today")}${opt("7", "Last 7 days")}${opt("30", "Last 30 days")}${opt("all", "All time")}</select></div>
+    <div class="stats">
+      <div class="stat"><div class="label">Dials</div><div class="value">${s.dials}</div></div>
+      <div class="stat"><div class="label">Contact rate</div><div class="value">${pct(s.reached, s.people)}</div></div>
+      <div class="stat"><div class="label">Appt rate</div><div class="value pos">${pct(s.appts, s.reached)}</div></div>
+      <div class="stat"><div class="label">Dials per appt</div><div class="value">${s.appts ? Math.round(s.dials / s.appts) : "–"}</div></div>
+    </div>
+    <p class="muted">${s.reached} of ${s.people} people reached, ${s.appts} appointments. Contact rate counts people you talked to out of people you dialed.</p>
+    <p class="muted">Best hours to call: ${hours.length ? hours.join(", ") : "needs at least 5 dials in an hour to tell"}</p>
+    ${lists ? `<ul class="list">${lists}</ul>` : ""}
+  </details>`;
+}
+
+// ---------- power hour ----------
+
+function sessionHtml() {
+  const ss = dialerSettings().session;
+  if (!ss) {
+    return `<div class="btn-row" style="margin-top:8px"><button data-dial="session-start">⚡ Start power hour</button>
+      <button data-dial="practice">🎯 Practice mode</button></div>`;
+  }
+  const log = state.dialer.log.filter((x) => (x.ts || 0) >= ss.start);
+  const s = summarize(log);
+  const mins = Math.floor((Date.now() - ss.start) / 60000);
+  const bar = (n, g) => `<span class="dial-bar"><span style="width:${Math.min(100, Math.round((n / g) * 100))}%"></span></span>`;
+  return `<div class="dial-session">
+    <strong>⚡ Power hour · ${mins} min</strong>
+    <span>${s.dials}/${ss.goalDials} dials ${bar(s.dials, ss.goalDials)}</span>
+    <span>${s.reached}/${ss.goalTalks} conversations ${bar(s.reached, ss.goalTalks)}</span>
+    <span>${s.appts} appts</span>
+    <button data-dial="practice">🎯 Practice</button>
+    <button data-dial="session-end">End session</button>
+  </div>`;
+}
+
+// ---------- National DNC registry file ----------
+
+// Reads a registry download (one number per line, any format) without loading it all at once,
+// flags matching numbers on every lead, and clears each list whose area codes the file fully covers.
+async function scanDncFile(file) {
+  const want = new Map();
+  for (const l of state.dialer.leads) for (const p of l.phones) {
+    if (!want.has(p.number)) want.set(p.number, []);
+    want.get(p.number).push(p);
+  }
+  const areas = new Set();
+  let lines = 0, hits = 0, buf = "";
+  const take = (line) => {
+    const d = line.replace(/\D/g, "");
+    if (d.length < 10) return;
+    const n = d.slice(-10);
+    lines++;
+    areas.add(n.slice(0, 3));
+    const ps = want.get(n);
+    if (ps) { for (const p of ps) { if (!p.dnc) hits++; p.dnc = true; p.registry = true; } }
+  };
+  const reader = file.stream().pipeThrough(new TextDecoderStream()).getReader();
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += value;
+    const parts = buf.split(/\r?\n/);
+    buf = parts.pop();
+    parts.forEach(take);
+  }
+  if (buf) take(buf);
+  if (!lines) return "That file had no phone numbers in it. Download the registry list as a text file (unzip it first) and try again.";
+  const cleared = [], notCovered = [];
+  for (const list of state.dialer.lists) {
+    const codes = new Set(state.dialer.leads.filter((l) => l.listId === list.id).flatMap((l) => l.phones.map((p) => p.number.slice(0, 3))));
+    const missing = [...codes].filter((c) => !areas.has(c));
+    if (!missing.length) { list.scrubbedOn = todayStr(); cleared.push(list.name); }
+    else notCovered.push(`${list.name} (also needs area codes ${missing.join(", ")})`);
+  }
+  save();
+  return `Checked ${lines.toLocaleString()} registered numbers in area codes ${[...areas].sort().join(", ")}. ${hits} of your numbers are on the registry and will be skipped.` +
+    (cleared.length ? ` ✅ Cleared to call: ${cleared.join(", ")}.` : "") +
+    (notCovered.length ? ` ⚠️ Not cleared yet: ${notCovered.join("; ")}.` : "");
+}
+
+// ---------- voicemail ----------
+
+function vmDb() {
+  return new Promise((resolve, reject) => {
+    const r = indexedDB.open("command-center-dialer", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("files");
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+  });
+}
+
+async function vmLoad() {
+  try {
+    const db = await vmDb();
+    dialerVm = await new Promise((resolve) => {
+      const q = db.transaction("files").objectStore("files").get("voicemail");
+      q.onsuccess = () => resolve(q.result || null);
+      q.onerror = () => resolve(null);
+    });
+  } catch (e) { dialerVm = null; }
+  return dialerVm;
+}
+
+async function vmSave(v) {
+  const db = await vmDb();
+  await new Promise((resolve, reject) => {
+    const t = db.transaction("files", "readwrite");
+    v ? t.objectStore("files").put(v, "voicemail") : t.objectStore("files").delete("voicemail");
+    t.oncomplete = resolve;
+    t.onerror = () => reject(t.error);
+  });
+  dialerVm = v;
+}
+
+async function vmRecordToggle() {
+  if (dialerVmRec) { dialerVmRec.recorder.stop(); return; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const recorder = new MediaRecorder(stream);
+    const chunks = [];
+    dialerVmRec = { recorder, startedAt: Date.now() };
+    recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+    recorder.onstop = async () => {
+      stream.getTracks().forEach((t) => t.stop());
+      const secs = Math.round((Date.now() - dialerVmRec.startedAt) / 1000);
+      dialerVmRec = null;
+      await vmSave({ blob: new Blob(chunks, { type: recorder.mimeType || "audio/webm" }), secs, at: todayStr() });
+      dialerVmMsg = secs > 30 ? `Saved (${secs}s). Try to keep it under 25 seconds.` : `✅ Saved (${secs}s).`;
+      render();
+    };
+    recorder.start();
+    dialerVmMsg = "🔴 Recording… read your voicemail script, then tap Stop.";
+  } catch (e) {
+    dialerVmMsg = "Couldn't use the microphone. Allow mic access for this site and try again.";
+  }
+  render();
+}
+
+function vmPlay() {
+  if (!dialerVm) return;
+  const a = new Audio(URL.createObjectURL(dialerVm.blob));
+  a.onended = () => URL.revokeObjectURL(a.src);
+  a.play();
+}
+
+// Swaps your mic for the recording on the live business-line call, then hangs up and logs "Left voicemail".
+async function dropVoicemail() {
+  const call = dialerCall && !dialerCall.ended && dialerCall.rtcCall;
+  const pc = call && call.peer && call.peer.instance;
+  const sender = pc && pc.getSenders && pc.getSenders().find((s) => s.track && s.track.kind === "audio");
+  if (!sender) { alert("Voicemail drop works on a connected business-line call. On your phone, read the voicemail script instead."); return; }
+  const vm = dialerVm || (await vmLoad());
+  if (!vm) { alert("Record your voicemail first in Dialer settings → 4. Voicemail."); return; }
+  const leadId = dialerCall.leadId, phone = dialerCall.phone;
+  try {
+    const ctx = new AudioContext();
+    const buf = await ctx.decodeAudioData(await vm.blob.arrayBuffer());
+    const dest = ctx.createMediaStreamDestination();
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(dest);
+    const mic = sender.track;
+    await sender.replaceTrack(dest.stream.getAudioTracks()[0]);
+    dialerCall.state = "Dropping voicemail…";
+    paintCallBar();
+    src.onended = () => setTimeout(() => {
+      try { sender.replaceTrack(mic); } catch (e) { /* call already gone */ }
+      ctx.close();
+      if (dialerCall && dialerCall.leadId === leadId) finishOutcome("voicemail", phone);
+    }, 500);
+    src.start();
+  } catch (e) {
+    alert("Couldn't play the voicemail into the call. Leave it live this time.");
+  }
+}
+
+// ---------- texting ----------
+
+function textReport(lead, phone) {
+  if (!confirm("Did they say yes to getting a text? Only text people who agreed on the call. Washington doesn't allow unsolicited marketing texts.")) return;
+  const body = fillVars(state.dialer.smsTemplate || DEFAULT_SMS, lead);
+  stashNotes();
+  lead.notes = `${lead.notes ? lead.notes + "\n" : ""}${todayStr()}: agreed to a text on the call, sent home value report.`;
+  save();
+  location.href = `sms:${phoneE164(phone)}?&body=${encodeURIComponent(body)}`;
+  render();
+}
+
+// ---------- practice ----------
+
+function objectionsList() {
+  return String(state.dialer.objections || DEFAULT_OBJECTIONS).split(/\n\s*\n/).map((b) => {
+    const lines = b.trim().split("\n");
+    return { q: (lines[0] || "").trim(), a: lines.slice(1).join("\n").trim() };
+  }).filter((o) => o.q && o.a);
+}
+
+function newPracticeRep() {
+  const pool = state.dialer.leads.filter((l) => l.name && l.address);
+  const lead = pool.length ? pool[Math.floor(Math.random() * pool.length)] : { name: "SMITH, PAT", address: "1215 S UNION AVE", cityZip: "Tacoma 98405" };
+  const objs = objectionsList();
+  const scores = dialerSettings().practiceScores || {};
+  // Objections you've missed come up more often.
+  const weighted = objs.flatMap((o) => Array((scores[o.q]?.miss || 0) + 1).fill(o));
+  dialerPractice = { lead, step: "opener", startedAt: Date.now(), openerSecs: 0, obj: weighted[Math.floor(Math.random() * weighted.length)] || null, reveal: false };
+}
+
+function renderPractice() {
+  const p = dialerPractice;
+  const ps = dialerSettings();
+  const reps = ps.practiceDate === todayStr() ? ps.practiceReps || 0 : 0;
+  const scores = ps.practiceScores || {};
+  const weak = Object.entries(scores).filter(([, v]) => v.miss > v.hit).map(([q]) => q);
+  const opener = fillVars(state.dialer.script || DEFAULT_SCRIPT, p.lead).split(/\n\s*\n/).slice(0, 3).join("\n\n");
+  let body = "";
+  if (p.step === "opener") {
+    body = `<p class="muted">Say it out loud like you're on the phone. Name, company and reason for the call within 30 seconds.</p>
+      <pre class="dial-pre">${esc(opener)}</pre>
+      <div class="btn-row"><button class="primary" data-dial="pr-opener">Done with the opener</button></div>`;
+  } else if (p.step === "objection" && p.obj) {
+    body = `<p class="dial-warn">Opener: ${p.openerSecs}s ${p.openerSecs <= 30 ? "✅" : "⚠️ over 30 seconds, tighten it up"}</p>
+      <h4>They say: “${esc(p.obj.q)}”</h4>
+      <p class="muted">Answer out loud, end with a question, then check yourself.</p>
+      ${p.reveal ? `<pre class="dial-pre">${esc(fillVars(p.obj.a, p.lead))}</pre>
+        <div class="btn-row"><button class="primary" data-dial="pr-score" data-hit="1">Nailed it</button><button data-dial="pr-score" data-hit="0">Need work</button></div>`
+      : `<div class="btn-row"><button class="primary" data-dial="pr-reveal">Show my answer</button></div>`}`;
+  }
+  return `<div class="card dial-lead">
+    <div class="dial-head"><div><div class="dial-name">🎯 Practice</div>
+      <div class="muted">Rep ${reps + 1} today · pretend you're calling ${esc(titleCase(p.lead.name))}, ${esc(titleCase(p.lead.address))}</div></div>
+      <div class="btn-row"><button data-dial="pr-skip">New rep</button><button data-dial="practice-end">Back to dialer</button></div></div>
+    ${body}
+    ${weak.length ? `<p class="muted">Work on: ${weak.map(esc).join(" · ")}</p>` : ""}
+  </div>`;
 }
 
 // ---------- calling ----------
@@ -460,6 +804,7 @@ function callBarHtml() {
     <span class="dial-dot"></span><strong>${esc(dialerCall.state)}</strong>
     <span class="muted">${esc(phonePretty(dialerCall.phone))}</span>
     <span class="dial-clock">${t}</span>
+    ${live && line && dialerCall.connectedAt ? `<button data-dial="drop-vm" title="Key V">📼 Drop voicemail</button>` : ""}
     ${live && line ? `<button data-dial="mute">${dialerMuted ? "Unmute" : "Mute"}</button><button class="primary" data-dial="hangup">Hang up</button>` : ""}
     ${live && !line ? `<button data-dial="hangup">Done</button>` : ""}
   </div>`;
@@ -467,13 +812,26 @@ function callBarHtml() {
 
 // ---------- rendering ----------
 
-function scriptFor(lead) {
+function fillVars(text, lead) {
   const street = (lead.address || "").replace(/^\d+[\w-]*\s+/, "").trim();
-  return (state.dialer.script || DEFAULT_SCRIPT)
+  return String(text || "")
     .replace(/\{first\}/g, titleCase(firstName(lead.name)) || "there")
     .replace(/\{name\}/g, titleCase(lead.name))
     .replace(/\{street\}/g, titleCase(street) || "your street")
-    .replace(/\{address\}/g, titleCase(lead.address));
+    .replace(/\{address\}/g, titleCase(lead.address) || "your home")
+    .replace(/\{myphone\}/g, state.dialer.myPhone || phonePretty(dialerSettings().callerId) || "")
+    .replace(/\{report\}/g, state.dialer.reportLink || "(I'll send it over shortly)")
+    .replace(/\{circle\}/g, dialerCircle ? titleCase(dialerCircle.address) : "a home nearby");
+}
+
+const CIRCLE_KIND = { sold: "just sold", listed: "just hit the market", coming: "is coming on the market soon" };
+
+function scriptFor(lead) {
+  let s = fillVars(state.dialer.script || DEFAULT_SCRIPT, lead);
+  if (dialerFilter === "circle" && dialerCircle) {
+    s = fillVars(`CIRCLE OPENER\nHi {first}, this is Devin Brown with Unique Lifestyle Realty. I'm calling a few neighbors because the home at {circle} ${CIRCLE_KIND[dialerCircle.kind] || "just sold"}, and most people like to know what that means for their own value. Had you heard about it?\n\n`, lead) + s;
+  }
+  return s;
 }
 
 function currentLead(leads) {
@@ -515,10 +873,37 @@ function renderDialerSetup() {
     </form>
     ${!passcode ? `<p class="muted">The business line uses the same site link and passcode as Daily 20 CRM → CRM settings.</p>` : ""}
     ${dialerLineMsg ? `<p class="muted">${esc(dialerLineMsg)}</p>` : ""}
+    <div class="muted dial-tips"><strong>Keep the business line off “Spam Likely”:</strong>
+      <ul>
+        <li>Register it free at <a href="https://www.freecallerregistry.com" target="_blank" rel="noopener">freecallerregistry.com</a> (covers AT&T, T-Mobile and Verizon spam labels).</li>
+        <li>In Telnyx, set the caller name (CNAM) to “Devin Brown” or “Unique Lifestyle”.</li>
+        <li>Stay under ${LINE_DAILY_SOFT_CAP} dials a day on one number, and let it ring 4–5 times before hanging up.</li>
+        <li>First week: call a few friends who'll pick up and talk a minute or two. Answered calls build the number's reputation.</li>
+      </ul></div>
+    <label class="muted" style="display:block;margin-top:8px"><input type="checkbox" id="dial-autofub" ${state.dialer.autoFub !== false ? "checked" : ""}> Send Call back, Interested and Appointment leads to Follow Up Boss automatically</label>
     <h4>3. Your script</h4>
-    <p class="muted">Use {first}, {street}, {name} and {address}. Washington requires you to say your name, your company and why you're calling within the first 30 seconds.</p>
+    <p class="muted">Use {first}, {street}, {name}, {address} and {myphone}. Washington requires you to say your name, your company and why you're calling within the first 30 seconds.</p>
     <textarea id="dial-script" style="min-height:220px">${esc(state.dialer.script || DEFAULT_SCRIPT)}</textarea>
-    <div class="btn-row"><button data-dial="reset-script">Reset to default script</button></div>
+    <div class="btn-row"><button data-dial="reset" data-field="script">Reset to default script</button></div>
+    <h4>4. Voicemail</h4>
+    <p class="muted">Your callback number: <input id="dial-myphone" value="${esc(state.dialer.myPhone || "")}" placeholder="(253) 555-0100" style="max-width:200px"></p>
+    <textarea id="dial-vm" style="min-height:100px">${esc(state.dialer.vmScript || DEFAULT_VM)}</textarea>
+    <p class="muted">Record it once (generic, no names, under 25 seconds). On a business-line call, tap 📼 Drop voicemail (or press V) after the beep: it plays your recording, hangs up and logs Left voicemail. On your phone, read the script shown under the call script. The recording stays on this device.</p>
+    <div class="btn-row">
+      <button data-dial="vm-rec" class="${dialerVmRec ? "primary" : ""}">${dialerVmRec ? "⏹ Stop" : "🎙 Record voicemail"}</button>
+      ${dialerVm ? `<button data-dial="vm-play">▶ Play (${dialerVm.secs}s)</button><button data-dial="vm-del">Delete</button>` : ""}
+      <button data-dial="reset" data-field="vmScript">Reset script</button>
+    </div>
+    ${dialerVmMsg ? `<p class="muted">${esc(dialerVmMsg)}</p>` : ""}
+    <h4>5. Objection cards</h4>
+    <p class="muted">One card per block: first line is what they say, then your answer. Leave a blank line between cards. They show beside the script and in Practice mode.</p>
+    <textarea id="dial-objections" style="min-height:220px">${esc(state.dialer.objections || DEFAULT_OBJECTIONS)}</textarea>
+    <div class="btn-row"><button data-dial="reset" data-field="objections">Reset objections</button></div>
+    <h4>6. Text follow-up</h4>
+    <p class="muted">Only for people who say yes to a text on the call. Use {first}, {address} and {report}.</p>
+    <input id="dial-report" value="${esc(state.dialer.reportLink || "")}" placeholder="Home value report link (e.g. your CMA or home value page)">
+    <textarea id="dial-sms" style="min-height:90px;margin-top:6px">${esc(state.dialer.smsTemplate || DEFAULT_SMS)}</textarea>
+    <div class="btn-row"><button data-dial="reset" data-field="smsTemplate">Reset text</button></div>
     <h4>Do Not Call list (${state.dialer.dnc.length})</h4>
     <form id="dial-dnc" class="row"><input name="phone" placeholder="Add a number someone asked you not to call"><button>Add</button></form>
   </details>`;
@@ -542,7 +927,17 @@ function renderLists() {
     </li>`;
   }).join("");
   return `<div class="card" style="margin-top:16px"><h3>Lists</h3><ul class="list">${rows}</ul>
-    <p class="muted">Before calling, check each list against the National Do Not Call Registry (your first 5 area codes are free at telemarketing.donotcall.gov) and your brokerage's list. Re-check every 31 days.</p></div>`;
+    <p class="muted">Before calling, check each list against the National Do Not Call Registry (your first 5 area codes are free at telemarketing.donotcall.gov) and your brokerage's list. Re-check every 31 days.</p>
+    <p class="muted"><strong>Fastest way:</strong> download the registry numbers for your area codes (253, 206 and so on) from telemarketing.donotcall.gov, unzip, and upload the file here. Every match is flagged and skipped, and each list it fully covers is cleared for 31 days.</p>
+    <label class="ghost btn-file">Upload DNC registry file<input type="file" id="dial-dncfile" accept=".txt,.csv,text/plain,text/csv" hidden></label>
+    ${dialerDncMsg ? `<p class="muted">${esc(dialerDncMsg)}</p>` : ""}</div>`;
+}
+
+function renderObjectionCards(lead) {
+  const objs = objectionsList();
+  if (!objs.length) return "";
+  return `<div class="card dial-script"><h3>Objections <span class="muted">(tap to open)</span></h3>
+    ${objs.map((o) => `<details class="dial-obj"><summary>${esc(o.q)}</summary><pre>${esc(fillVars(o.a, lead))}</pre></details>`).join("")}</div>`;
 }
 
 function renderDialer() {
@@ -564,13 +959,23 @@ function renderDialer() {
       <div class="stat"><div class="label">In queue</div><div class="value">${queueLeads().length}</div></div>
     </div>
     <div class="muted">${hoursOk ? `Calling window open until ${CALL_END_HOUR - 12}pm.` : `Calling window is closed (${CALL_START_HOUR}am–${CALL_END_HOUR - 12}pm). Use this time to import and scrub lists.`}
-    ${s.mode === "line" ? ` · Business line: ${lineDials}/${LINE_DAILY_SOFT_CAP} dials today${lineDials >= LINE_DAILY_SOFT_CAP ? " ⚠️ slow down to protect the number from spam labels" : ""}` : " · Calling from your phone"}</div></div>`;
+    ${s.mode === "line" ? ` · Business line: ${lineDials}/${LINE_DAILY_SOFT_CAP} dials today${lineDials >= LINE_DAILY_SOFT_CAP ? " ⚠️ slow down to protect the number from spam labels" : ""}` : " · Calling from your phone"}</div>
+    ${sessionHtml()}</div>`;
+
+  if (dialerVm === undefined) vmLoad().then(() => { if (currentTab === "dialer") render(); });
+
+  if (dialerPractice) {
+    return `<h2 class="dial-title">Dialer</h2>${statsCard}<div style="margin-top:16px">${renderPractice()}</div>`;
+  }
 
   if (!d.lists.length) {
     return `<h2 class="dial-title">Dialer</h2>${statsCard}${renderDialerSetup()}`;
   }
 
-  let leadCard = `<div class="card dial-lead"><p class="muted">${dialerFilter === "queue" ? "Nobody left to call right now. Import a new list, or check Callbacks." : "Nobody here yet."}</p></div>`;
+  const emptyMsg = dialerFilter === "queue" ? "Nobody left to call right now. Import a new list, or check Callbacks."
+    : dialerFilter === "circle" ? (dialerCircle ? `No callable neighbors on ${titleCase(dialerCircle.street)} in your lists.` : "Enter the address that just sold or listed to call its neighbors first.")
+    : "Nobody here yet.";
+  let leadCard = `<div class="card dial-lead"><p class="muted">${esc(emptyMsg)}</p></div>`;
   if (lead) {
     const list = leadList(lead);
     const ok = listScrubOk(list);
@@ -600,10 +1005,18 @@ function renderDialer() {
         <label class="muted">Call back on <input type="date" id="dial-cb" value="${esc(lead.callbackDate || addDays(todayStr(), 2))}"></label>
       </div>
       <textarea id="dial-notes" placeholder="Notes (motivation, timeline, best time to call)" style="min-height:70px;margin-top:8px">${esc(lead.notes || "")}</textarea>
-      ${lead.crmId ? `<p class="muted">✅ In your Daily 20 CRM</p>` : ""}
+      <div class="btn-row"><button data-dial="sms" data-phone="${lastPhone}" ${lastPhone ? "" : "disabled"}>📱 Text the report (only if they said yes)</button></div>
+      ${(() => { const c = lead.crmId && state.crm.contacts.find((x) => x.id === lead.crmId); return c ? `<p class="muted">✅ In your Daily 20 CRM${c.fub === "synced" ? " · ✅ Follow Up Boss" : c.fub === "failed" ? ` · Follow Up Boss failed: ${esc(c.fubError || "")}` : ""}</p>` : ""; })()}
     </div>
-    <div class="card dial-script"><h3>Script</h3><pre>${esc(scriptFor(lead))}</pre></div>`;
+    <div class="card dial-script"><h3>Script</h3><pre>${esc(scriptFor(lead))}</pre>
+      <details style="margin-top:10px"><summary><strong>Voicemail script</strong></summary><pre>${esc(fillVars(state.dialer.vmScript || DEFAULT_VM, lead))}</pre></details></div>
+    ${renderObjectionCards(lead)}`;
   }
+
+  const circleForm = dialerFilter === "circle" ? `<form id="dial-circle" class="row" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+      <input name="address" placeholder="Address that just sold, e.g. 1215 S Union Ave" value="${esc(dialerCircle ? dialerCircle.address : "")}" style="flex:1;min-width:180px">
+      <select name="kind">${Object.entries({ sold: "Just sold", listed: "Just listed", coming: "Coming soon" }).map(([k, v]) => `<option value="${k}" ${dialerCircle && dialerCircle.kind === k ? "selected" : ""}>${v}</option>`).join("")}</select>
+      <button class="primary">Find neighbors</button></form>` : "";
 
   const rows = leads.slice(0, 200).map((l) => `<li class="${lead && l.id === lead.id ? "on" : ""}">
       <button class="x grow dial-row" data-dial="pick" data-id="${l.id}"><strong>${esc(titleCase(l.name) || "Owner")}</strong>
@@ -620,13 +1033,16 @@ function renderDialer() {
             <option value="queue" ${dialerFilter === "queue" ? "selected" : ""}>Up next</option>
             <option value="callbacks" ${dialerFilter === "callbacks" ? "selected" : ""}>Callbacks</option>
             <option value="all" ${dialerFilter === "all" ? "selected" : ""}>Everyone</option>
+            <option value="circle" ${dialerFilter === "circle" ? "selected" : ""}>Circle a sale (neighbors first)</option>
           </select>
-          <select id="dial-list"><option value="">All lists</option>${listOpts}</select>
+          ${dialerFilter === "circle" ? "" : `<select id="dial-list"><option value="">All lists</option>${listOpts}</select>`}
         </div>
-        <p class="muted">${leads.length} ${dialerFilter === "queue" ? "to call" : "owners"}${leads.length > 200 ? " (showing 200)" : ""}</p>
+        ${circleForm}
+        <p class="muted">${leads.length} ${dialerFilter === "queue" || dialerFilter === "circle" ? "to call" : "owners"}${dialerFilter === "circle" ? ", closest house numbers first" : ""}${leads.length > 200 ? " (showing 200)" : ""}</p>
         <ul class="list">${rows}</ul>
       </div>
     </div>
+    ${renderStats()}
     ${renderLists()}
     ${renderDialerSetup()}`;
 }
@@ -708,9 +1124,63 @@ document.getElementById("view").addEventListener("click", async (e) => {
         render();
       }
       return;
-    case "reset-script":
-      if (confirm("Replace your script with the default?")) { state.dialer.script = DEFAULT_SCRIPT; save(); render(); }
+    case "reset": {
+      const defs = { script: DEFAULT_SCRIPT, vmScript: DEFAULT_VM, objections: DEFAULT_OBJECTIONS, smsTemplate: DEFAULT_SMS };
+      const f = btn.dataset.field;
+      if (defs[f] && confirm("Replace this with the default version?")) { state.dialer[f] = defs[f]; save(); render(); }
       return;
+    }
+    case "drop-vm": dropVoicemail(); return;
+    case "sms": {
+      const lead = dialerLead();
+      if (lead && btn.dataset.phone) textReport(lead, btn.dataset.phone);
+      return;
+    }
+    case "vm-rec": vmRecordToggle(); return;
+    case "vm-play": vmPlay(); return;
+    case "vm-del":
+      if (confirm("Delete your recorded voicemail?")) { await vmSave(null); dialerVmMsg = ""; render(); }
+      return;
+    case "session-start": {
+      const dials = parseInt(prompt("Dial goal for this session?", "50"), 10);
+      if (!dials) return;
+      const talks = parseInt(prompt("Conversation goal?", "5"), 10) || 5;
+      saveDialerSettings({ session: { start: Date.now(), goalDials: dials, goalTalks: talks } });
+      render();
+      return;
+    }
+    case "session-end": {
+      const ss = dialerSettings().session;
+      if (ss) {
+        const s = summarize(state.dialer.log.filter((x) => (x.ts || 0) >= ss.start));
+        alert(`Session done: ${Math.floor((Date.now() - ss.start) / 60000)} min, ${s.dials} dials, ${s.reached} conversations, ${s.appts} appointments.`);
+      }
+      saveDialerSettings({ session: null });
+      render();
+      return;
+    }
+    case "practice": stashNotes(); save(); newPracticeRep(); render(); return;
+    case "practice-end": dialerPractice = null; render(); return;
+    case "pr-skip": newPracticeRep(); render(); return;
+    case "pr-opener":
+      dialerPractice.openerSecs = Math.round((Date.now() - dialerPractice.startedAt) / 1000);
+      dialerPractice.step = "objection";
+      render();
+      return;
+    case "pr-reveal": dialerPractice.reveal = true; render(); return;
+    case "pr-score": {
+      const ps = dialerSettings();
+      const scores = { ...(ps.practiceScores || {}) };
+      const q = dialerPractice.obj.q;
+      const cur = { hit: 0, miss: 0, ...(scores[q] || {}) };
+      btn.dataset.hit === "1" ? cur.hit++ : cur.miss++;
+      scores[q] = cur;
+      const reps = ps.practiceDate === todayStr() ? (ps.practiceReps || 0) + 1 : 1;
+      saveDialerSettings({ practiceScores: scores, practiceReps: reps, practiceDate: todayStr() });
+      newPracticeRep();
+      render();
+      return;
+    }
     case "test-line":
       dialerLineMsg = "Connecting…";
       render();
@@ -732,6 +1202,21 @@ document.getElementById("view").addEventListener("change", (e) => {
   else if (el.id === "dial-list") { stashNotes(); dialerListFilter = el.value; dialerCurrentId = null; render(); }
   else if (el.id === "dial-notes" || el.id === "dial-cb") { stashNotes(); save(); }
   else if (el.id === "dial-script") { state.dialer.script = el.value; save(); }
+  else if (el.id === "dial-vm") { state.dialer.vmScript = el.value; save(); }
+  else if (el.id === "dial-objections") { state.dialer.objections = el.value; save(); }
+  else if (el.id === "dial-sms") { state.dialer.smsTemplate = el.value; save(); }
+  else if (el.id === "dial-report") { state.dialer.reportLink = el.value.trim(); save(); }
+  else if (el.id === "dial-myphone") { state.dialer.myPhone = el.value.trim(); save(); }
+  else if (el.id === "dial-autofub") { state.dialer.autoFub = el.checked; save(); }
+  else if (el.id === "dial-range") { dialerStatsRange = el.value; render(); }
+  else if (el.id === "dial-dncfile") {
+    const file = el.files[0];
+    if (!file) return;
+    dialerDncMsg = "Checking the registry file…";
+    render();
+    scanDncFile(file).then((msg) => { dialerDncMsg = msg; render(); })
+      .catch(() => { dialerDncMsg = "Couldn't read that file. Unzip the registry download and upload the .txt file."; render(); });
+  }
   else if (el.name === "file" && el.closest("#dial-import")) {
     const file = el.files[0];
     if (!file) return;
@@ -766,12 +1251,26 @@ document.getElementById("view").addEventListener("submit", (e) => {
     render();
   } else if (f.id === "dial-import") {
     e.preventDefault();
+  } else if (f.id === "dial-circle") {
+    e.preventDefault();
+    const a = parseStreetAddress(f.address.value);
+    if (!a) { alert("Enter a street address with a house number, e.g. 1215 S Union Ave."); return; }
+    stashNotes();
+    save();
+    dialerCircle = { address: f.address.value.trim(), num: a.num, street: a.street, kind: f.kind.value };
+    dialerCurrentId = null;
+    render();
   }
 });
 
 document.addEventListener("keydown", (e) => {
   if (currentTab !== "dialer" || e.metaKey || e.ctrlKey || e.altKey) return;
   if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement && document.activeElement.tagName)) return;
+  if (e.key === "v" || e.key === "V") {
+    const vb = document.querySelector('[data-dial="drop-vm"]');
+    if (vb) { e.preventDefault(); dropVoicemail(); }
+    return;
+  }
   const o = OUTCOMES.find((x) => x.key === e.key);
   if (!o) return;
   const btn = document.querySelector(`[data-dial="outcome"][data-outcome="${o.id}"]`);
