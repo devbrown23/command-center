@@ -695,6 +695,7 @@ function contactName(c) {
 }
 
 function logTouch(type, contactId) {
+  if (touchesOn(todayStr()) === (state.crm.dailyTarget || 20) - 1 && window.hakiBurst) setTimeout(window.hakiBurst, 50);
   state.crm.touches.push({ id: uid(), date: todayStr(), type, contactId: contactId || null });
   if (contactId) {
     const c = state.crm.contacts.find((x) => x.id === contactId);
@@ -1038,7 +1039,7 @@ function renderCrm() {
     </li>`).join("");
 
   return `<div class="grid">
-    <div class="card" style="--tab:#1f6feb">
+    <div class="card" style="--tab:#1f6feb" data-haki="1">
       <h2>Daily 20 ${day > 0 ? `· Day ${day} of 100` : ""}</h2>
       ${day > 0 ? "" : `<p class="muted">Set your start date in CRM settings below to begin the 100-day count.</p>`}
       <div class="stats">
