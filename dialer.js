@@ -37,7 +37,10 @@ IF YES / MAYBE
 "I can put together the numbers for you. Would a quick 15-minute visit work this week, or would a text with the report be easier?"
 
 IF NOT INTERESTED
-"No problem at all, thanks for your time." (If they ask not to be called, tap Do not call.)
+"No problem at all, thanks for your time." (Wrap up within 10 seconds.)
+
+IF THEY ASK NOT TO BE CALLED
+"Understood. I'll take your number off my list, and you won't hear from me for at least a year." Then tap Do not call.
 
 GOAL: get them talking about their plans and book a home value appointment. Don't try to close on the first call.`;
 
