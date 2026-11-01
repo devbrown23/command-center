@@ -232,7 +232,8 @@ function renderOverview() {
   }).join("");
 
   const profit = totalIncome - totalExpense;
-  return `${renderDealCard()}
+  return `${renderHub()}
+  ${renderDealCard()}
   ${renderCrmOverviewCard()}
     <div class="card" style="margin-bottom:16px">
       <h2>All businesses, ${esc(monthInput.value)}</h2>
