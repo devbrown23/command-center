@@ -373,3 +373,23 @@ body.menu-open .menu-handle { opacity: 0; pointer-events: none; }
 .menu-tip kbd { border: 1px solid rgba(255, 170, 60, 0.4); border-radius: 4px; padding: 0 5px; color: #ffaa3c; }
 body.tabs-hidden #tabs { display: none; }
 @media (max-width: 720px) { .menu-handle { top: auto; bottom: 90px; transform: none; } }
+
+/* ---------- Apple-style top bar: slim, one line, blurred ---------- */
+.tabs { position: sticky; top: 0; z-index: 40; display: block; padding: 0; border-bottom: 1px solid rgba(255, 170, 60, 0.12);
+  background: rgba(8, 5, 2, 0.72); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); }
+.tabs-inner { max-width: 1100px; margin: 0 auto; height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 2px; padding: 0 16px; overflow-x: auto; scrollbar-width: none; }
+.tabs-inner::-webkit-scrollbar { display: none; }
+.tabs button { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Exo 2", system-ui, sans-serif !important; letter-spacing: 0 !important;
+  text-transform: none; font-size: 12px; font-weight: 400; color: rgba(251, 238, 221, 0.78); padding: 0 8px; height: 44px; border: 0 !important; text-shadow: none !important; box-shadow: none !important; background: none !important; transition: color .2s; }
+.tabs button:hover { color: #fff; border: 0; box-shadow: none; }
+.tabs button.active { color: #ffaa3c; }
+.tabs .tabs-logo, .tabs .tabs-menu { font-size: 16px; color: rgba(251, 238, 221, 0.9); padding: 0 6px; }
+.tabs .tabs-logo:hover, .tabs .tabs-menu:hover { color: #ffaa3c; }
+.menu-handle { display: none; }
+body.tabs-hidden .menu-handle { display: flex; }
+.tabs button:focus { outline: none; }
+.tabs button:focus-visible { outline: 1px solid rgba(255, 170, 60, 0.6); outline-offset: -8px; border-radius: 8px; }
+@media (max-width: 720px) {
+  .tabs button:not(.tabs-logo):not(.tabs-menu) { display: none; }
+  .tabs .tabs-logo, .tabs .tabs-menu { font-size: 18px; }
+}

@@ -66,6 +66,7 @@
   function close() { document.body.classList.remove("menu-open"); }
 
   handle.addEventListener("click", open);
+  document.addEventListener("click", (e) => { if (e.target.closest("[data-open-menu]")) { e.stopPropagation(); open(); } }, true);
   shade.addEventListener("click", close);
   drawer.addEventListener("click", (e) => {
     const goBtn = e.target.closest("[data-menu-go]");
