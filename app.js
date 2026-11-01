@@ -201,9 +201,13 @@ function renderTabs() {
     { id: "inbox", name: "Inbox", color: "#ff4fd8" },
     ...BUSINESSES,
   ];
-  document.getElementById("tabs").innerHTML = tabs
-    .map((t) => `<button data-tab="${t.id}" style="--tab:${t.color}" class="${t.id === currentTab ? "active" : ""}">${esc(t.name)}</button>`)
-    .join("");
+  // Short labels keep the top bar on one clean line; the full names are in the menu.
+  const SHORT = { crm: "Daily 20", realestate: "Real Estate", dropship: "Dropship", trucking: "Trucking", juice: "Juice", content: "Video" };
+  document.getElementById("tabs").innerHTML = `<div class="tabs-inner">
+    <button class="tabs-logo" data-tab="overview" title="Overview">☠</button>
+    ${tabs.map((t) => `<button data-tab="${t.id}" style="--tab:${t.color}" class="${t.id === currentTab ? "active" : ""}" title="${esc(t.name)}">${esc(SHORT[t.id] || t.name)}</button>`).join("")}
+    <button class="tabs-menu" data-open-menu title="Menu ( \` )">☰</button>
+  </div>`;
 }
 
 function renderOverview() {
