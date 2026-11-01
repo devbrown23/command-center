@@ -29,6 +29,8 @@ const BUSINESSES = [
     itemLabel: "Product",
     amountLabel: "Profit per sale",
     stages: ["Researching", "Testing", "Winner", "Paused"],
+    dropship: true,     // Research → Build → Launch hub, product scorecard and ad tests (dropship.js)
+    noPipeline: true,   // products live in the scorecard instead of the generic board
     links: [],
   },
   {
@@ -337,9 +339,11 @@ function renderBusiness(biz) {
 
   ${biz.plan2026 ? renderPlan2026(s) : ""}
 
+  ${biz.dropship ? renderDropship(s) : ""}
+
   ${biz.tracksVideos ? renderVideos(biz, s, today) : ""}
 
-  <div class="card" style="margin-top:16px">
+  ${biz.noPipeline ? "" : `<div class="card" style="margin-top:16px">
     <h3>${esc(biz.pipelineName)}</h3>
     <div class="kanban">${columns}</div>
     <form class="row" data-form="pipeline">
@@ -348,7 +352,7 @@ function renderBusiness(biz) {
       <select name="stage">${biz.stages.map((st) => `<option>${esc(st)}</option>`).join("")}</select>
       <button class="primary">Add</button>
     </form>
-  </div>
+  </div>`}
 
   <div class="card" style="margin-top:16px">
     <h3>Notes</h3>
