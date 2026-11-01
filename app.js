@@ -400,6 +400,7 @@ function renderVideos(biz, s, today) {
 function render() {
   if (!["overview", "crm", "dialer", "inbox"].includes(currentTab) && !BUSINESSES.some((b) => b.id === currentTab)) currentTab = "overview";
   renderTabs();
+  document.body.dataset.tab = currentTab;
   const biz = BUSINESSES.find((b) => b.id === currentTab);
   const view = document.getElementById("view");
   if (currentTab === "crm") view.innerHTML = renderCrm();

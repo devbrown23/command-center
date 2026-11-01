@@ -445,7 +445,8 @@ function sessionHtml() {
   const ss = dialerSettings().session;
   if (!ss) {
     return `<div class="btn-row" style="margin-top:8px"><button data-dial="session-start">⚡ Start power hour</button>
-      <button data-dial="practice">🎯 Practice mode</button></div>`;
+      <button data-dial="practice">🎯 Practice mode</button>
+      <button class="spar-btn" data-dial="spar">🔴 Spar with a homeowner</button></div>`;
   }
   const log = state.dialer.log.filter((x) => (x.ts || 0) >= ss.start);
   const s = summarize(log);
@@ -457,6 +458,7 @@ function sessionHtml() {
     <span>${s.reached}/${ss.goalTalks} conversations ${bar(s.reached, ss.goalTalks)}</span>
     <span>${s.appts} appts</span>
     <button data-dial="practice">🎯 Practice</button>
+    <button class="spar-btn" data-dial="spar">🔴 Spar</button>
     <button data-dial="session-end">End session</button>
   </div>`;
 }
@@ -953,7 +955,7 @@ function renderDialer() {
   const hoursOk = inCallingHours();
   const listOpts = d.lists.map((l) => `<option value="${l.id}" ${dialerListFilter === l.id ? "selected" : ""}>${esc(l.name)}</option>`).join("");
 
-  const statsCard = `<div class="card" data-haki="1"><div class="stats">
+  const statsCard = `<div class="card dial-stats" data-haki="1"><div class="stats">
       <div class="stat"><div class="label">Dials today</div><div class="value">${log.length}</div></div>
       <div class="stat"><div class="label">Conversations</div><div class="value">${talked}</div></div>
       <div class="stat"><div class="label">Appointments</div><div class="value pos">${appts}</div></div>
@@ -977,6 +979,7 @@ function renderDialer() {
     : dialerFilter === "circle" ? (dialerCircle ? `No callable neighbors on ${titleCase(dialerCircle.street)} in your lists.` : "Enter the address that just sold or listed to call its neighbors first.")
     : "Nobody here yet.";
   let leadCard = `<div class="card dial-lead"><p class="muted">${esc(emptyMsg)}</p></div>`;
+  let scriptCards = "";
   if (lead) {
     const list = leadList(lead);
     const ok = listScrubOk(list);
@@ -1008,8 +1011,8 @@ function renderDialer() {
       <textarea id="dial-notes" placeholder="Notes (motivation, timeline, best time to call)" style="min-height:70px;margin-top:8px">${esc(lead.notes || "")}</textarea>
       <div class="btn-row"><button data-dial="sms" data-phone="${lastPhone}" ${lastPhone ? "" : "disabled"}>📱 Text the report (only if they said yes)</button></div>
       ${(() => { const c = lead.crmId && state.crm.contacts.find((x) => x.id === lead.crmId); return c ? `<p class="muted">✅ In your Daily 20 CRM${c.fub === "synced" ? " · ✅ Follow Up Boss" : c.fub === "failed" ? ` · Follow Up Boss failed: ${esc(c.fubError || "")}` : ""}</p>` : ""; })()}
-    </div>
-    <div class="card dial-script"><h3>Script</h3><pre>${esc(scriptFor(lead))}</pre>
+    </div>`;
+    scriptCards = `<div class="card dial-script"><h3>Script</h3><pre>${esc(scriptFor(lead))}</pre>
       <details style="margin-top:10px"><summary><strong>Voicemail script</strong></summary><pre>${esc(fillVars(state.dialer.vmScript || DEFAULT_VM, lead))}</pre></details></div>
     ${renderObjectionCards(lead)}`;
   }
@@ -1027,7 +1030,8 @@ function renderDialer() {
   return `<h2 class="dial-title">Dialer</h2>
     ${statsCard}
     <div class="dial-grid">
-      <div>${leadCard}</div>
+      <div class="dial-col-a">${leadCard}</div>
+      <div class="dial-col-b">${scriptCards}</div>
       <div class="card dial-queue">
         <div class="row" style="display:flex;gap:6px;flex-wrap:wrap">
           <select id="dial-filter">
@@ -1043,8 +1047,7 @@ function renderDialer() {
         <ul class="list">${rows}</ul>
       </div>
     </div>
-    ${renderStats()}
-    ${renderLists()}
+    <div class="dial-lower">${renderStats()}${renderLists()}</div>
     ${renderDialerSetup()}`;
 }
 
@@ -1161,6 +1164,7 @@ document.getElementById("view").addEventListener("click", async (e) => {
       return;
     }
     case "practice": stashNotes(); save(); newPracticeRep(); render(); return;
+    case "spar": stashNotes(); save(); if (window.openSpar) window.openSpar(); return;
     case "practice-end": dialerPractice = null; render(); return;
     case "pr-skip": newPracticeRep(); render(); return;
     case "pr-opener":
@@ -1266,6 +1270,7 @@ document.getElementById("view").addEventListener("submit", (e) => {
 
 document.addEventListener("keydown", (e) => {
   if (currentTab !== "dialer" || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (document.body.classList.contains("spar-open")) return; // keys belong to the practice call
   if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement && document.activeElement.tagName)) return;
   if (e.key === "v" || e.key === "V") {
     const vb = document.querySelector('[data-dial="drop-vm"]');
