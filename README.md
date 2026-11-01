@@ -3,7 +3,7 @@
 One page to run all my businesses:
 
 - **From Start 2 Keys**: real estate clients, plus the 2026 plan ($100K tracker, weekly scorecard, close-my-buyers checklist, homebuyer class funnel, review goal)
-- **Dropshipping**: a Research → Build → Launch store roadmap (following the Power of Three course), a product scorecard (cost, shipping, price → profit after Shopify fees, markup, break-even ROAS and a 0–100 score), and an ad test log that calls each product Kill, Keep testing, Profitable or Scale, and can add ad spend and sales to Money in / out
+- **Dropshipping** (Stack & Smoke, stackandsmoke.com): a Stack & Smoke HQ panel (Black Friday and shipping-cutoff countdowns, a launch checklist with a NEXT step, the week-by-week holiday plan with this week highlighted, monthly tool costs and how many Starter Stacks cover them, and quick links to the store, AutoDS, Ads Manager, the marketing playbook and the theme repo), a Research → Build → Launch store roadmap (following the Power of Three course), a product scorecard (cost, shipping, price → profit after Shopify fees, markup, break-even ROAS and a 0–100 score), and an ad test log that calls each product Kill, Keep testing, Profitable or Scale, and can add ad spend and sales to Money in / out
 - **Cards**: eBay card inventory
 - **Vet Bros Trucking**: loads
 - **Juice Havan**: cold-pressed juice pre-orders
