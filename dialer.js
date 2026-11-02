@@ -225,13 +225,28 @@ function detectColumns(header) {
   const h = header.map((x) => x.trim().toLowerCase());
   const find = (...tests) => h.findIndex((col) => tests.some((t) => (t instanceof RegExp ? t.test(col) : col === t)));
   const cols = {
-    name: find(/^owner ?1? ?(full )?name$/, "owner", "owner(s)", "owners", "full name", "name", /^primary owner/),
+    name: find(/^owner ?1? ?(full )?name$/, "owner", "owner(s)", "owners", "full name", "name", /^primary owner/, "ownernamelabelformat", /^owner ?name/),
     first: find(/^(owner ?1? ?)?first ?name$/, "first"),
     last: find(/^(owner ?1? ?)?last ?name$/, "last"),
     address: find(/^(site|situs|property|prop) ?(street )?address$/, "address", "street address", /^site ?addr/, /^property ?addr/),
     city: find(/^(site|situs|property) ?city$/, "city"),
     zip: find(/^(site|situs|property) ?zip/, "zip", "zip code", "zipcode", "postal code"),
     email: find(/e-?mail/),
+    state: find(/^(site|situs|property) ?state$/, "state"),
+    parcel: find("parcelid", "parcel id", "parcel", "apn", "parcel number"),
+    mailAddr: find("owneraddr", "mailing address", "mail address", "owner address", /^mail(ing)? ?addr/),
+    mailCity: find("ownercitynm", "ownercity", "mailing city", "mail city"),
+    mailState: find("ownerstate", "mailing state", "mail state"),
+    mailZip: find("ownerzipfull", "ownerzip", "mailing zip", "mail zip"),
+    ownerOcc: find("owneroccupiedind", "owner occupied", "owneroccupied"),
+    beds: find("bedct", "beds", "bedrooms", "bed"),
+    baths: find("bathttlct", "baths", "bathrooms", "bath"),
+    sqft: find("bldgsqft", "sqft", "square feet", "living area", "building sqft"),
+    yrBuilt: find("yrblt", "year built", "yearbuilt"),
+    saleAmt: find("saleamt", "last sale price", "sale price", "last sale amount"),
+    saleDate: find("docrcrdgdt", "last sale date", "sale date", "recording date"),
+    dnm: find("donotmailind", "do not mail"),
+    hood: find("nbrhdmlsdsc", "neighborhood", "subdivision"),
     phones: [],
     dncCols: [],
   };
@@ -249,8 +264,55 @@ function truthy(v) {
 }
 
 function importDialerCsv(text, listName) {
-  const rows = parseCsv(text);
-  if (rows.length < 2) return "That file looks empty. Export the list as a CSV and try again.";
+  return importDialerRows(parseCsv(text), listName);
+}
+
+// Same owner = same parcel number, or same street address + ZIP.
+function addrKey(addr, zip) {
+  const a = parseStreetAddress(addr);
+  const z = String(zip || "").slice(0, 5);
+  return a ? `${a.num} ${a.street} ${z}` : String(addr || "").toUpperCase().replace(/\s+/g, " ").trim() + " " + z;
+}
+
+function cleanNum(v) {
+  const n = parseFloat(String(v ?? "").replace(/[$,]/g, ""));
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+function excelOrTextDate(v) {
+  const t = String(v ?? "").trim();
+  if (!t) return "";
+  if (/^\d{5}(\.\d+)?$/.test(t)) { // Excel serial date
+    const d = new Date(Math.round((parseFloat(t) - 25569) * 86400000));
+    return d.toISOString().slice(0, 10);
+  }
+  const m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) return `${m[3]}-${m[1].padStart(2, "0")}-${m[2].padStart(2, "0")}`;
+  const d = new Date(t);
+  return isNaN(d) ? "" : d.toISOString().slice(0, 10);
+}
+
+function loadXlsxLib() {
+  if (window.XLSX) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "vendor/xlsx.full.min.js";
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error("Couldn't load the spreadsheet reader."));
+    document.head.appendChild(s);
+  });
+}
+
+// Excel files (Equity Title sends .xlsx): first sheet, as rows of text.
+async function readSheetRows(file) {
+  await loadXlsxLib();
+  const wb = window.XLSX.read(await file.arrayBuffer(), { type: "array" });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  return window.XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: "" }).map((r) => r.map((v) => (v === true ? "TRUE" : v === false ? "FALSE" : String(v))));
+}
+
+function importDialerRows(rows, listName) {
+  if (rows.length < 2) return "That file looks empty. Export the list and try again.";
   const header = rows[0];
   const cols = detectColumns(header);
   if (cols.name < 0 && cols.first < 0 && cols.last < 0 && cols.address < 0) {
@@ -258,7 +320,12 @@ function importDialerCsv(text, listName) {
   }
   const list = { id: uid(), name: listName || `List ${state.dialer.lists.length + 1}`, importedAt: todayStr(), scrubbedOn: "" };
   const existing = new Set(state.dialer.leads.flatMap((l) => l.phones.map((p) => p.number)));
-  let added = 0, noPhone = 0, flagged = 0, dupes = 0;
+  const byKey = new Map();
+  for (const l of state.dialer.leads) {
+    if (l.info && l.info.parcel) byKey.set("P" + l.info.parcel, l);
+    if (l.address) byKey.set("A" + addrKey(l.address, l.zip || l.cityZip.split(" ").pop()), l);
+  }
+  let added = 0, noPhone = 0, flagged = 0, dupes = 0, merged = 0, phonesAdded = 0;
   const body = rows.slice(1, MAX_IMPORT_ROWS + 1);
   for (const r of body) {
     const get = (i) => (i >= 0 ? (r[i] || "").trim() : "");
@@ -277,16 +344,41 @@ function importDialerCsv(text, listName) {
       if (dnc) flagged++;
       phones.push({ number, dnc, bad: false });
     });
+    const zip = get(cols.zip);
+    const parcel = get(cols.parcel);
+    const occ = get(cols.ownerOcc);
+    const mail = [get(cols.mailAddr), get(cols.mailCity), get(cols.mailState), get(cols.mailZip)].filter(Boolean).join(", ");
+    const info = {
+      parcel, beds: cleanNum(get(cols.beds)), baths: cleanNum(get(cols.baths)), sqft: cleanNum(get(cols.sqft)),
+      yrBuilt: cleanNum(get(cols.yrBuilt)), saleAmt: cleanNum(get(cols.saleAmt)), saleDate: excelOrTextDate(get(cols.saleDate)),
+      absentee: occ ? !truthy(occ) && /^(n|no|false|0)$/i.test(occ.trim()) : false, mail, dnm: truthy(get(cols.dnm)), hood: get(cols.hood),
+    };
+    // Already in the dialer (another farm, or a skip-trace file coming back)? Add any new phones to that owner.
+    const match = (parcel && byKey.get("P" + parcel)) || (address && byKey.get("A" + addrKey(address, zip)));
+    if (match) {
+      let gained = 0;
+      for (const p of phones) if (!match.phones.some((x) => x.number === p.number)) { match.phones.push(p); existing.add(p.number); gained++; }
+      if (!match.info) match.info = info;
+      if (gained) { merged++; phonesAdded += gained; if (match.status === "done" && !match.attempts) match.status = "new"; } else dupes++;
+      continue;
+    }
     if (!phones.length) noPhone++;
     if (phones.length && phones.every((p) => existing.has(p.number))) { dupes++; continue; }
     phones.forEach((p) => existing.add(p.number));
-    state.dialer.leads.push({
+    const lead = {
       id: uid(), listId: list.id, name, address,
-      cityZip: [get(cols.city), get(cols.zip)].filter(Boolean).join(" "),
-      email: get(cols.email), phones,
+      cityZip: [get(cols.city), zip].filter(Boolean).join(" "), zip, state: get(cols.state),
+      email: get(cols.email), phones, info,
       status: "new", attempts: 0, lastCall: "", lastOutcome: "", callbackDate: "", notes: "", crmId: "",
-    });
+    };
+    state.dialer.leads.push(lead);
+    if (parcel) byKey.set("P" + parcel, lead);
+    if (address) byKey.set("A" + addrKey(address, zip), lead);
     added++;
+  }
+  if (!added && merged) {
+    save();
+    return `Added ${phonesAdded} phone numbers to ${merged} owners already in your dialer.${dupes ? ` ${dupes} had nothing new.` : ""}`;
   }
   if (!added) return "No new owners found in that file (they may already be in your dialer).";
   state.dialer.lists.push(list);
@@ -294,7 +386,28 @@ function importDialerCsv(text, listName) {
   dialerCurrentId = null;
   save();
   const extra = rows.length - 1 > MAX_IMPORT_ROWS ? ` Only the first ${MAX_IMPORT_ROWS} rows were imported.` : "";
-  return `Imported ${added} owners into "${list.name}". ${noPhone ? `${noPhone} have no phone number yet (skip trace them). ` : ""}${flagged ? `${flagged} numbers were flagged Do Not Call in the file and will be skipped. ` : ""}${dupes ? `${dupes} were already in your dialer. ` : ""}${extra}`;
+  return `Imported ${added} owners into "${list.name}". ${merged ? `Added ${phonesAdded} phones to ${merged} owners already in your dialer. ` : ""}${noPhone ? `${noPhone} have no phone number yet: tap "Skip trace file" under Lists, run it through a skip-trace service, then import the results here and the numbers attach to the right owners. ` : ""}${flagged ? `${flagged} numbers were flagged Do Not Call in the file and will be skipped. ` : ""}${dupes ? `${dupes} were already in your dialer (another list). ` : ""}${extra}`;
+}
+
+// File for a skip-trace service: owners on this list with no callable number yet.
+function exportSkipTrace(listId) {
+  const list = state.dialer.lists.find((l) => l.id === listId);
+  const leads = state.dialer.leads.filter((l) => l.listId === listId && !dialablePhones(l).length && l.status !== "dnc");
+  if (!leads.length) { alert("Everyone on this list already has a phone number."); return; }
+  const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const lines = [["First Name", "Last Name", "Property Address", "Property City", "Property State", "Property Zip", "Mailing Address", "Parcel"].map(q).join(",")];
+  for (const l of leads) {
+    const n = String(l.name || "").replace(/\s*&.*$/, "").trim(); // first owner on the title
+    const parts = n.includes(",") ? [n.split(",")[1].trim(), n.split(",")[0].trim()] : [n.split(/\s+/)[0], n.split(/\s+/).slice(1).join(" ") || String(l.name || "").split(/\s+/).pop()];
+    const city = (l.cityZip || "").replace(/\s*\d{5}(-\d{4})?$/, "");
+    lines.push([parts[0], parts[1], l.address, city, l.state || "WA", (l.zip || "").slice(0, 5), l.info?.mail || "", l.info?.parcel || ""].map(q).join(","));
+  }
+  const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `${(list ? list.name : "list").replace(/[^\w-]+/g, "-")}-skip-trace.csv`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
 function exportListCsv(listId) {
@@ -815,6 +928,34 @@ function callBarHtml() {
 
 // ---------- rendering ----------
 
+function yearsOwned(lead) {
+  const d = lead.info && lead.info.saleDate;
+  return d ? Math.max(0, Math.floor((Date.now() - new Date(d + "T12:00:00")) / (365.25 * 86400000))) : 0;
+}
+
+function propertyIntel(lead) {
+  const i = lead.info;
+  if (!i) return "";
+  const yrs = yearsOwned(lead);
+  const facts = [
+    i.beds ? `${i.beds} bd` : "", i.baths ? `${i.baths} ba` : "", i.sqft ? `${Math.round(i.sqft).toLocaleString()} sqft` : "",
+    i.yrBuilt ? `built ${i.yrBuilt}` : "",
+  ].filter(Boolean).join(" · ");
+  const sale = i.saleAmt || i.saleDate ? `Bought ${i.saleDate ? new Date(i.saleDate + "T12:00:00").toLocaleDateString([], { month: "short", year: "numeric" }) : ""}${i.saleAmt ? ` for $${Math.round(i.saleAmt).toLocaleString()}` : ""}${yrs ? ` · owned ${yrs} yr${yrs === 1 ? "" : "s"}` : ""}` : "";
+  const tags = [
+    i.absentee ? `<span class="tag">Absentee owner${i.mail ? `: mail goes to ${esc(i.mail)}` : ""}</span>` : "",
+    i.dnm ? `<span class="tag">Do not mail</span>` : "",
+    i.hood ? `<span class="tag">${esc(i.hood)}</span>` : "",
+  ].join(" ");
+  const tip = yrs >= 7 ? "Long-time owner: likely big equity. Ask what they'd do with it." : i.absentee ? "Landlord or second home: ask about their plans for the property." : "";
+  return `<div class="dial-intel">
+    ${facts ? `<div>🏠 ${esc(facts)}</div>` : ""}
+    ${sale ? `<div>📈 ${esc(sale)}</div>` : ""}
+    ${tags.trim() ? `<div>${tags}</div>` : ""}
+    ${tip ? `<div class="muted">💡 ${esc(tip)}</div>` : ""}
+  </div>`;
+}
+
 function fillVars(text, lead) {
   const street = (lead.address || "").replace(/^\d+[\w-]*\s+/, "").trim();
   return String(text || "")
@@ -824,6 +965,7 @@ function fillVars(text, lead) {
     .replace(/\{address\}/g, titleCase(lead.address) || "your home")
     .replace(/\{myphone\}/g, state.dialer.myPhone || phonePretty(dialerSettings().callerId) || "")
     .replace(/\{report\}/g, state.dialer.reportLink || "(I'll send it over shortly)")
+    .replace(/\{years\}/g, yearsOwned(lead) ? `${yearsOwned(lead)} years` : "a while")
     .replace(/\{circle\}/g, dialerCircle ? titleCase(dialerCircle.address) : "a home nearby");
 }
 
@@ -858,10 +1000,10 @@ function renderDialerSetup() {
   return `<details class="card" id="dial-setup" ${open ? "open" : ""} style="margin-top:16px">
     <summary><strong>Dialer settings & import</strong></summary>
     <h4>1. Import a farm list</h4>
-    <p class="muted">Export your list from Equity Title (or any skip-trace file) as a CSV. The dialer finds the owner name, site address and every phone column automatically, and skips numbers marked DNC in the file.</p>
+    <p class="muted">Drop in the Excel file Equity Title sends (Likely Listings) or any CSV. The dialer finds the owner, address, phones and property details automatically and skips numbers marked DNC. Owners already in your dialer aren't duplicated: a skip-trace file you import later just adds phone numbers to them.</p>
     <form id="dial-import" class="row">
       <input name="name" placeholder="List name (e.g. 12th & Union farm)">
-      <label class="ghost btn-file">Choose CSV<input type="file" name="file" accept=".csv,text/csv" hidden></label>
+      <label class="ghost btn-file">Choose CSV<input type="file" name="file" accept=".csv,.xlsx,.xls,text/csv" hidden></label>
     </form>
     ${dialerImportMsg ? `<p class="muted">${esc(dialerImportMsg)}</p>` : ""}
     <h4>2. How you call</h4>
@@ -885,7 +1027,7 @@ function renderDialerSetup() {
       </ul></div>
     <label class="muted" style="display:block;margin-top:8px"><input type="checkbox" id="dial-autofub" ${state.dialer.autoFub !== false ? "checked" : ""}> Send Call back, Interested and Appointment leads to Follow Up Boss automatically</label>
     <h4>3. Your script</h4>
-    <p class="muted">Use {first}, {street}, {name}, {address} and {myphone}. Washington requires you to say your name, your company and why you're calling within the first 30 seconds.</p>
+    <p class="muted">Use {first}, {street}, {name}, {address}, {years} (how long they've owned it) and {myphone}. Washington requires you to say your name, your company and why you're calling within the first 30 seconds.</p>
     <textarea id="dial-script" style="min-height:220px">${esc(state.dialer.script || DEFAULT_SCRIPT)}</textarea>
     <div class="btn-row"><button data-dial="reset" data-field="script">Reset to default script</button></div>
     <h4>4. Voicemail</h4>
@@ -922,9 +1064,11 @@ function renderLists() {
     return `<li>
       <div class="grow"><strong>${esc(l.name)}</strong>
         <div class="muted">${leads.length} owners · ${withPhone} callable · ${left} left to call · imported ${esc(l.importedAt)}</div>
+        ${leads.length - withPhone > 0 ? `<div class="muted">📵 ${leads.length - withPhone} need phone numbers (skip trace)</div>` : ""}
         <div class="muted">${ok ? `✅ DNC scrubbed ${esc(l.scrubbedOn)}` : `⚠️ Not cleared to call: confirm the National DNC scrub`}</div>
       </div>
       ${ok ? "" : `<button data-dial="scrub" data-id="${l.id}">I scrubbed it today</button>`}
+      ${leads.length - withPhone > 0 ? `<button data-dial="skiptrace" data-id="${l.id}">Skip trace file</button>` : ""}
       <button data-dial="export" data-id="${l.id}">Export</button>
       <button class="x neg" data-dial="del-list" data-id="${l.id}" title="Delete list">✕</button>
     </li>`;
@@ -1000,6 +1144,7 @@ function renderDialer() {
           <div class="muted">${esc(list ? list.name : "")} · ${esc(statusLabel(lead))}${lead.lastCall ? ` · last call ${esc(lead.lastCall)}` : ""}</div></div>
         <div class="btn-row"><button data-dial="prev">◀</button><button data-dial="skip">Skip ▶</button></div>
       </div>
+      ${propertyIntel(lead)}
       ${ok ? "" : `<p class="dial-warn">This list isn't cleared to call yet. Confirm the National DNC scrub in Lists.</p>`}
       <div id="dialer-callbar">${callBarHtml()}</div>
       ${phones}
@@ -1118,6 +1263,7 @@ document.getElementById("view").addEventListener("click", async (e) => {
       return;
     }
     case "export": exportListCsv(id); return;
+    case "skiptrace": exportSkipTrace(id); return;
     case "del-list":
       if (confirm("Delete this list and everyone in it from the dialer? Your Do Not Call list and CRM contacts stay.")) {
         state.dialer.lists = state.dialer.lists.filter((l) => l.id !== id);
@@ -1225,11 +1371,13 @@ document.getElementById("view").addEventListener("change", (e) => {
   else if (el.name === "file" && el.closest("#dial-import")) {
     const file = el.files[0];
     if (!file) return;
-    const name = el.form.elements.name.value.trim() || file.name.replace(/\.csv$/i, "");
-    file.text().then((text) => {
-      dialerImportMsg = importDialerCsv(text, name);
-      render();
-    });
+    const name = el.form.elements.name.value.trim() || file.name.replace(/\.(csv|xlsx?)$/i, "").replace(/^[0-9a-f]{8}-/, "").replace(/_/g, " ").replace(/\s*Likely Listings.*$/i, "");
+    const isSheet = /\.xlsx?$/i.test(file.name);
+    dialerImportMsg = "Reading the file…";
+    render();
+    (isSheet ? readSheetRows(file).then((rows) => importDialerRows(rows, name)) : file.text().then((text) => importDialerCsv(text, name)))
+      .then((msg) => { dialerImportMsg = msg; render(); })
+      .catch((err) => { dialerImportMsg = "Couldn't read that file: " + err.message; render(); });
   }
 });
 
