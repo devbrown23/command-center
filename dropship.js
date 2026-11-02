@@ -49,7 +49,7 @@ const DS_CHECKS = [
 
 // ---------- Stack & Smoke store HQ ----------
 const SS = {
-  // Plan (Nov 1): Starter Stack $59 with an instant-read thermometer; Full Stack $89
+  // Plan (Nov 1): Starter Stack $59 = instant-read thermometer + gloves + smoke tube + shredder claws; Full Stack $89
   domain: "stackandsmoke.com",
   blackFriday: "2026-11-27",
   shipCutoff: "2026-12-15", // US-warehouse Christmas cutoff (confirm with supplier)
@@ -106,12 +106,12 @@ const SS = {
   ],
   // target costs from the sourcing plan; replace with real AutoDS numbers
   products: [
-    ["The Starter Stack (bundle)", 18, 59, { wow: true, problem: true, video: true, stores: true }],
-    ["The Full Stack (bundle)", 30, 89, { wow: true, problem: true, video: true, stores: true }],
+    ["The Starter Stack (bundle)", 17, 59, { wow: true, problem: true, video: true, stores: true }],
+    ["The Full Stack (bundle)", 29, 89, { wow: true, problem: true, video: true, stores: true }],
     ["Instant-read thermometer", 6, 19.99, { wow: true, problem: true, video: true }],
     ["Heat-resistant gloves", 5, 14.99, { problem: true, video: true }],
     ["Pellet smoke tube", 3, 9.99, { wow: true, video: true }],
-    ["BBQ spray bottle", 3, 9.99, { video: true }],
+    ["Meat shredder claws", 3, 11.99, { wow: true, video: true }],
     ["Bristle-free grill scraper", 6, 17.99, { problem: true, video: true }],
     ["Marinade injector", 6, 17.99, { video: true }],
   ],
@@ -201,6 +201,16 @@ function dsState(s) {
     for (const id of ["s-verify", "s-autods", "s-dsers", "s-policies", "s-ship"]) s.ds.launch[id] = true;
     Object.assign(s.ds.road, { "b-supplier": true, "b-policy": true });
     s.ds.ssPlan59 = true;
+  }
+  // one-time swap: shredder claws replace the spray bottle (only touches untouched defaults)
+  if (!s.ds.ssClaws) {
+    const sb = s.ds.products.find((x) => x.name === "BBQ spray bottle");
+    if (sb) { sb.name = "Meat shredder claws"; if (sb.price === 9.99) sb.price = 11.99; sb.checks = { ...(sb.checks || {}), wow: true, video: true }; }
+    const st = s.ds.products.find((x) => x.name === "The Starter Stack (bundle)");
+    if (st && st.cost === 18) st.cost = 17;
+    const fs = s.ds.products.find((x) => x.name === "The Full Stack (bundle)");
+    if (fs && fs.cost === 30) fs.cost = 29;
+    s.ds.ssClaws = true;
   }
   // one-time move of old Products board items into the scorecard
   if (!s.ds.migrated) {
