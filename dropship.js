@@ -49,6 +49,7 @@ const DS_CHECKS = [
 
 // ---------- Stack & Smoke store HQ ----------
 const SS = {
+  // Plan (Nov 1): Starter Stack $59 with an instant-read thermometer; Full Stack $89
   domain: "stackandsmoke.com",
   blackFriday: "2026-11-27",
   shipCutoff: "2026-12-15", // US-warehouse Christmas cutoff (confirm with supplier)
@@ -59,7 +60,14 @@ const SS = {
     ["AutoDS", "https://platform.autods.com"],
     ["Meta Ads Manager", "https://adsmanager.facebook.com"],
     ["Marketing playbook", "https://claude.ai/artifact/Bn55h4wpTrpKcn2EPbEXu8"],
+    ["Theme preview", "https://stackandsmoke.com/?preview_theme_id=158027514012"],
+    ["Themes", "https://admin.shopify.com/store/shonenhype/themes"],
     ["Theme code (GitHub)", "https://github.com/devbrown23/stack-and-smoke-theme"],
+    ["AutoDS drafts", "https://platform.autods.com/drafts"],
+    ["Thermometer (supplier)", "https://www.aliexpress.us/item/1005007038287842.html"],
+    ["Shipping policy", "https://stackandsmoke.com/pages/shipping-policy"],
+    ["Return policy", "https://stackandsmoke.com/pages/return-policy"],
+    ["FAQ", "https://stackandsmoke.com/pages/faqs"],
   ],
   weeks: [
     ["2026-11-01", "2026-11-08", "Import products in AutoDS, set prices, build bundles, film cook #1", "$0"],
@@ -79,9 +87,10 @@ const SS = {
     ["s-handles", "Claim @stackandsmoke on Instagram + TikTok"],
     ["s-tm", "Trademark check: tmsearch.uspto.gov"],
     ["s-autods", "Connect Stack & Smoke to the paid AutoDS account"],
-    ["s-import", "Import the 6 products in AutoDS as Draft (US warehouse)"],
+    ["s-import", "Import the 4 Starter Stack items in AutoDS as Draft (thermometer picked)"],
     ["s-dsers", "Uninstall DSers (saves $19.90/mo)"],
     ["s-policies", "Fill Shipping + Return policy pages from supplier terms"],
+    ["s-ship", "Shipping: US only, free tracked shipping"],
     ["s-bundles", "Install Shopify Bundles; build Starter Stack + Full Stack"],
     ["s-theme", "Connect the GitHub theme, add photos, preview, publish"],
     ["s-pixel", "Connect Facebook & Instagram channel (Meta pixel)"],
@@ -89,18 +98,17 @@ const SS = {
     ["s-test", "Place a test order end to end"],
     ["s-film", "Film cook #1 from the shot list"],
   ],
-  launchDone: ["s-name", "s-domain", "s-archive", "s-collections"],
+  launchDone: ["s-name", "s-domain", "s-archive", "s-collections", "s-verify", "s-autods", "s-dsers", "s-policies", "s-ship"],
   subs: [
     { name: "Shopify Basic", cost: 39 },
-    { name: "DSers (cancel)", cost: 19.9 },
-    { name: "AutoDS", cost: 0 },
+    { name: "AutoDS (next charge Nov 18)", cost: 46.23 },
     { name: "Domain (stackandsmoke.com)", cost: 1.42 },
   ],
   // target costs from the sourcing plan; replace with real AutoDS numbers
   products: [
-    ["The Starter Stack (bundle)", 26, 79, { wow: true, problem: true, video: true, stores: true }],
-    ["The Full Stack (bundle)", 40, 119, { wow: true, problem: true, video: true, stores: true }],
-    ["Wireless meat thermometer", 15, 44.99, { wow: true, problem: true, video: true }],
+    ["The Starter Stack (bundle)", 18, 59, { wow: true, problem: true, video: true, stores: true }],
+    ["The Full Stack (bundle)", 30, 89, { wow: true, problem: true, video: true, stores: true }],
+    ["Instant-read thermometer", 6, 19.99, { wow: true, problem: true, video: true }],
     ["Heat-resistant gloves", 5, 14.99, { problem: true, video: true }],
     ["Pellet smoke tube", 3, 9.99, { wow: true, video: true }],
     ["BBQ spray bottle", 3, 9.99, { video: true }],
@@ -130,7 +138,7 @@ function renderStackSmoke(ds) {
 
   return `<div class="card ss-hq" style="margin-top:16px">
     <div class="ds-phase-head"><h3>Stack & Smoke HQ</h3><a href="https://${SS.domain}" target="_blank" rel="noopener" class="muted">${SS.domain} ↗</a></div>
-    <p class="muted">Stack it. Smoke it. · Hero: The Starter Stack ($79) · Gifts for the grill guy → spring grilling.</p>
+    <p class="muted">Stack it. Smoke it. · Hero: The Starter Stack ($59) · Gifts for the grill guy → spring grilling.</p>
     <div class="stats">
       <div class="stat"><div class="label">Days to Black Friday</div><div class="value">${bf > 0 ? bf : bf === 0 ? "Today" : "–"}</div></div>
       <div class="stat"><div class="label">Days to ship cutoff</div><div class="value ${cut <= 7 ? "neg" : ""}">${cut > 0 ? cut : "–"}</div></div>
@@ -175,6 +183,25 @@ function dsState(s) {
   }
   s.ds.launch = s.ds.launch || {};
   s.ds.subs = s.ds.subs || [];
+  // one-time move to the $59 instant-read plan (only touches values still at the old defaults)
+  if (!s.ds.ssPlan59) {
+    const fix = (oldName, newName, oldCost, oldPrice, cost, price, link) => {
+      const p = s.ds.products.find((x) => x.name === oldName);
+      if (!p) return;
+      p.name = newName;
+      if (p.cost === oldCost && p.price === oldPrice) { p.cost = cost; p.price = price; }
+      if (link && !p.link) p.link = link;
+    };
+    fix("The Starter Stack (bundle)", "The Starter Stack (bundle)", 26, 79, 18, 59);
+    fix("The Full Stack (bundle)", "The Full Stack (bundle)", 40, 119, 30, 89);
+    fix("Wireless meat thermometer", "Instant-read thermometer", 15, 44.99, 6, 19.99, "https://www.aliexpress.us/item/1005007038287842.html");
+    s.ds.subs = s.ds.subs.filter((x) => !/^DSers/i.test(x.name));
+    const ads = s.ds.subs.find((x) => /^AutoDS/i.test(x.name));
+    if (ads) { if (!ads.cost) ads.cost = 46.23; ads.name = "AutoDS (next charge Nov 18)"; }
+    for (const id of ["s-verify", "s-autods", "s-dsers", "s-policies", "s-ship"]) s.ds.launch[id] = true;
+    Object.assign(s.ds.road, { "b-supplier": true, "b-policy": true });
+    s.ds.ssPlan59 = true;
+  }
   // one-time move of old Products board items into the scorecard
   if (!s.ds.migrated) {
     for (const p of s.pipeline || []) {
