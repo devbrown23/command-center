@@ -49,7 +49,7 @@ const DS_CHECKS = [
 
 // ---------- Stack & Smoke store HQ ----------
 const SS = {
-  // Plan (Nov 1): Starter Stack $59 = instant-read thermometer + gloves + smoke tube + shredder claws; Full Stack $89
+  // LIVE Nov 1: Starter Stack $59 = instant-read thermometer + marinade injector + shredder claws (cost $21.46). Full Stack on hold.
   domain: "stackandsmoke.com",
   blackFriday: "2026-11-27",
   shipCutoff: "2026-12-15", // US-warehouse Christmas cutoff (confirm with supplier)
@@ -65,6 +65,9 @@ const SS = {
     ["Theme code (GitHub)", "https://github.com/devbrown23/stack-and-smoke-theme"],
     ["AutoDS drafts", "https://platform.autods.com/drafts"],
     ["Thermometer (supplier)", "https://www.aliexpress.us/item/1005007038287842.html"],
+    ["Injector (supplier)", "https://www.aliexpress.us/item/3256811779455910.html"],
+    ["Claws (supplier)", "https://www.aliexpress.us/item/3256804900600670.html"],
+    ["Email forwarding (hello@)", "https://admin.shopify.com/store/shonenhype/settings/domains"],
     ["Shipping policy", "https://stackandsmoke.com/pages/shipping-policy"],
     ["Return policy", "https://stackandsmoke.com/pages/return-policy"],
     ["FAQ", "https://stackandsmoke.com/pages/faqs"],
@@ -84,21 +87,22 @@ const SS = {
     ["s-archive", "Archive the 7 old products"],
     ["s-collections", "Create the 5 collections + menus, About and FAQ pages"],
     ["s-verify", "Verify the domain email (Gmail)"],
-    ["s-handles", "Claim @stackandsmoke on Instagram + TikTok"],
+    ["s-mail", "Shopify → Settings → Domains → stackandsmoke.com → Email forwarding: hello@ → your Gmail"],
+    ["s-handles", "Claim @stackandsmoke on IG + TikTok with hello@stackandsmoke.com → switch to Business → bio + link stackandsmoke.com"],
     ["s-tm", "Trademark check: tmsearch.uspto.gov"],
     ["s-autods", "Connect Stack & Smoke to the paid AutoDS account"],
-    ["s-import", "Import the 4 Starter Stack items in AutoDS as Draft (thermometer picked)"],
+    ["s-import", "Import Starter Stack items in AutoDS (thermometer, injector, claws)"],
     ["s-dsers", "Uninstall DSers (saves $19.90/mo)"],
     ["s-policies", "Fill Shipping + Return policy pages from supplier terms"],
     ["s-ship", "Shipping: US only, free tracked shipping"],
-    ["s-bundles", "Install Shopify Bundles; build Starter Stack + Full Stack"],
+    ["s-bundles", "Build the Starter Stack bundle ($59)"],
     ["s-theme", "Connect the GitHub theme, add photos, preview, publish"],
     ["s-pixel", "Connect Facebook & Instagram channel (Meta pixel)"],
     ["s-email", "Turn on email pop-up + welcome / abandoned-cart automations"],
-    ["s-test", "Place a test order end to end"],
-    ["s-film", "Film cook #1 from the shot list"],
+    ["s-test", "Test order: buy the Starter Stack, confirm AutoDS shows 3 items, keep them for filming"],
+    ["s-film", "Film product close-ups when the test order arrives (temp check, injecting, pulling pork)"],
   ],
-  launchDone: ["s-name", "s-domain", "s-archive", "s-collections", "s-verify", "s-autods", "s-dsers", "s-policies", "s-ship"],
+  launchDone: ["s-name", "s-domain", "s-archive", "s-collections", "s-verify", "s-autods", "s-dsers", "s-policies", "s-ship", "s-import", "s-bundles", "s-theme"],
   subs: [
     { name: "Shopify Basic", cost: 39 },
     { name: "AutoDS (next charge Nov 18)", cost: 46.23 },
@@ -106,14 +110,10 @@ const SS = {
   ],
   // target costs from the sourcing plan; replace with real AutoDS numbers
   products: [
-    ["The Starter Stack (bundle)", 17, 59, { wow: true, problem: true, video: true, stores: true }],
-    ["The Full Stack (bundle)", 29, 89, { wow: true, problem: true, video: true, stores: true }],
-    ["Instant-read thermometer", 6, 19.99, { wow: true, problem: true, video: true }],
-    ["Heat-resistant gloves", 5, 14.99, { problem: true, video: true }],
-    ["Pellet smoke tube", 3, 9.99, { wow: true, video: true }],
-    ["Meat shredder claws", 3, 11.99, { wow: true, video: true }],
-    ["Bristle-free grill scraper", 6, 17.99, { problem: true, video: true }],
-    ["Marinade injector", 6, 17.99, { video: true }],
+    ["The Starter Stack (bundle)", 21.46, 59, { wow: true, problem: true, video: true, stores: true }],
+    ["Instant-read thermometer", 4.53, 19.99, { wow: true, problem: true, video: true }],
+    ["Marinade injector", 6.23, 17.99, { video: true }],
+    ["Meat shredder claws (pair)", 10.70, 24.99, { wow: true, video: true }],
   ],
 };
 
@@ -211,6 +211,19 @@ function dsState(s) {
     const fs = s.ds.products.find((x) => x.name === "The Full Stack (bundle)");
     if (fs && fs.cost === 30) fs.cost = 29;
     s.ds.ssClaws = true;
+  }
+  // Nov 1 launch: real AutoDS costs, live lineup, mark built steps done
+  if (!s.ds.ssLive) {
+    const live = new Set(SS.products.map(([n]) => n.toLowerCase()));
+    const cut = /full stack|gloves|smoke tube|scraper|^meat shredder claws$/i;
+    s.ds.products = s.ds.products.filter((p) => live.has(p.name.toLowerCase()) || !cut.test(p.name));
+    for (const [name, cost, price, checks] of SS.products) {
+      const p = s.ds.products.find((x) => x.name.toLowerCase() === name.toLowerCase());
+      if (p) { p.cost = cost; p.price = price; p.stage = "Testing"; }
+      else s.ds.products.push({ id: uid(), name, cost, ship: 0, price, link: "", stage: "Testing", checks });
+    }
+    for (const id of ["s-import", "s-bundles", "s-theme"]) s.ds.launch[id] = true;
+    s.ds.ssLive = true;
   }
   // one-time move of old Products board items into the scorecard
   if (!s.ds.migrated) {
