@@ -77,6 +77,8 @@
     if (now - last < 16) return;
     last = now;
     ctx.clearRect(0, 0, innerWidth, innerHeight);
+    // Spar is full-screen and the page behind it doesn't need lightning
+    if (document.body.classList.contains("spar-open") || document.hidden) { bolts = []; return; }
     const bursting = now < burstUntil;
     const els = document.querySelectorAll("[data-haki]");
     for (const el of els) {

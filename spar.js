@@ -9,6 +9,8 @@
 
 (function () {
   const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // iPhone/iPad: the mic level meter (getUserMedia) fights speech recognition and can mute the voice, so it's skipped there.
+  const IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
   // ---------- the orb ----------
   // A glowing red core with spinning arc rings, orbiting sparks and a waveform ring that reacts to sound.
@@ -31,6 +33,8 @@
     function frame(now) {
       if (!o.alive) return;
       if (!canvas.isConnected) { o.alive = false; return; }
+      // hidden (other tab, or the overlay is open): don't burn frames drawing nothing
+      if (!canvas.offsetParent || document.hidden) { setTimeout(() => requestAnimationFrame(frame), 400); return; }
       const [w, h] = size();
       const t = (now - t0) / 1000;
       const cx = w / 2, cy = h / 2, R = Math.min(w, h) * 0.26;
@@ -289,7 +293,7 @@
     const base = { persona: sp.persona.ai, difficulty: sp.diff, objections: sp.cards.slice(0, 12), lead: { first: sp.lead.first, street: sp.lead.street } };
     async function call(body) {
       const ctl = new AbortController();
-      const to = setTimeout(() => ctl.abort(), 15000);
+      const to = setTimeout(() => ctl.abort(), 9000);
       try {
         const r = await fetch(api, { method: "POST", signal: ctl.signal, headers: { "Content-Type": "application/json", "X-CRM-Passcode": passcode }, body: JSON.stringify({ ...base, ...body }) });
         const j = await r.json().catch(() => ({}));
@@ -353,7 +357,8 @@
   }
 
   function closeSpar() {
-    stopListening(); if (synth) synth.cancel();
+    if (rec) { const r = rec; rec = null; try { r.abort(); } catch (e) { /* closed */ } }
+    releaseMic(); if (synth) synth.cancel();
     clearInterval(sp && sp.clock);
     if (sp && sp.orb) sp.orb.destroy();
     const el = document.querySelector(".spar");
@@ -464,6 +469,11 @@
     if (c && sp && sp.startedAt) { const s = Math.floor(((sp.endedAt || Date.now()) - sp.startedAt) / 1000); c.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; }
   }
 
+  function unlockVoice() {
+    if (!synth) return;
+    try { synth.cancel(); const u = new SpeechSynthesisUtterance(" "); u.volume = 0; synth.speak(u); } catch (e) { /* no voice */ }
+  }
+
   function orbState(s) { if (sp && sp.orb) sp.orb.state = s; }
 
   function speak(text) {
@@ -475,10 +485,13 @@
       u.rate = p.voice.rate; u.pitch = p.voice.pitch;
       const v = pickVoice(PERSONAS.indexOf(p)); if (v) u.voice = v;
       u.onboundary = () => sp && sp.orb && sp.orb.pulse(0.6 + Math.random() * 0.4);
-      let done = false;
+      let done = false, started = false;
       const finish = () => { if (done) return; done = true; if (sp) { sp.speaking = false; orbState("idle"); } resolve(); };
+      u.onstart = () => { started = true; };
       u.onend = finish; u.onerror = finish;
-      setTimeout(finish, 2500 + text.length * 90); // never get stuck if the browser drops the event
+      // never get stuck if the browser drops the event (iPhone does this a lot)
+      setTimeout(finish, 1500 + text.length * 75);
+      setTimeout(() => { if (!started && !synth.speaking) finish(); }, 1800); // voice never started: move on
       sp.speaking = true; orbState("speaking");
       synth.speak(u);
     });
@@ -487,7 +500,7 @@
   // ---------- mic ----------
   let rec = null, micStream = null, micRaf = 0;
   async function micLevels() {
-    if (micStream || !navigator.mediaDevices) return;
+    if (IOS || micStream || !navigator.mediaDevices) return;
     try {
       micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const ac = new (window.AudioContext || window.webkitAudioContext)();
@@ -508,34 +521,59 @@
     cancelAnimationFrame(micRaf);
     if (micStream) { micStream.getTracks().forEach((t) => t.stop()); try { micStream._ac.close(); } catch (e) { /* closed */ } micStream = null; }
   }
+  // Speech recognition with watchdogs: iPhone Safari sometimes never starts, never fires onend,
+  // or never marks results final. Any of those used to leave Spar stuck on "Listening".
   function startListening() {
     if (!Recog || !sp || sp.busy || sp.ended || sp.listening) return;
     if (synth) synth.cancel();
-    rec = new Recog();
-    rec.lang = "en-US"; rec.interimResults = true; rec.continuous = false;
-    let finalText = "";
-    rec.onresult = (e) => {
-      let interim = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) finalText += e.results[i][0].transcript; else interim += e.results[i][0].transcript;
-      }
-      const live = document.getElementById("spar-live");
-      if (live) live.textContent = (finalText + " " + interim).trim();
-    };
-    rec.onerror = (e) => { if (sp) sp.note = e.error === "not-allowed" ? "Mic is blocked. Allow the microphone for this site, or type instead." : e.error === "no-speech" ? "" : "Mic hiccup: " + e.error; };
-    rec.onend = () => {
-      rec = null;
-      if (!sp) return;
+    const r = new Recog();
+    rec = r;
+    r.lang = "en-US"; r.interimResults = true; r.continuous = false;
+    let finalText = "", interim = "", started = false, heardAt = 0, ended = false;
+    const t0 = Date.now(), session = sp;
+    const wrapUp = () => {
+      if (ended) return;
+      ended = true;
+      clearInterval(watch);
+      if (rec === r) rec = null;
+      try { r.abort(); } catch (e) { /* already closed */ }
+      if (!sp || sp !== session) return; // Spar was closed or restarted
       sp.listening = false;
-      const t = finalText.trim();
-      if (t) send(t); else { orbState("idle"); paint(); }
+      const t = (finalText || interim).trim();
+      if (t && !sp.busy && !sp.ended) send(t); else { orbState("idle"); paint(); }
     };
+    r._wrap = wrapUp;
+    r.onstart = r.onaudiostart = () => { started = true; };
+    r.onresult = (e) => {
+      started = true; heardAt = Date.now();
+      let fin = "", mid = "";
+      for (let i = 0; i < e.results.length; i++) {
+        if (e.results[i].isFinal) fin += e.results[i][0].transcript; else mid += e.results[i][0].transcript;
+      }
+      finalText = fin; interim = (fin + " " + mid).trim();
+      const live = document.getElementById("spar-live");
+      if (live) live.textContent = interim;
+    };
+    r.onerror = (e) => { if (sp) sp.note = e.error === "not-allowed" || e.error === "service-not-allowed" ? "Mic is blocked. Tap 🎙 Talk, allow the microphone, or type instead." : e.error === "no-speech" || e.error === "aborted" ? "" : "Mic hiccup: " + e.error + ". Tap 🎙 Talk or type."; };
+    r.onend = wrapUp;
+    const watch = setInterval(() => {
+      const now = Date.now();
+      if (!sp || sp !== session) return wrapUp();
+      if (!started && now - t0 > 3000) { sp.note = "Mic didn't open. Tap 🎙 Talk or type your answer."; return wrapUp(); }
+      if (heardAt && now - heardAt > 2200) return stopListening(); // you paused: send it
+      if (now - t0 > 25000) return stopListening();
+    }, 300);
     sp.listening = true; sp.note = "";
     micLevels();
-    try { rec.start(); } catch (e) { sp.listening = false; }
+    try { r.start(); } catch (e) { sp.note = "Mic didn't open. Tap 🎙 Talk or type your answer."; wrapUp(); return; }
     paint();
   }
-  function stopListening() { if (rec) { try { rec.stop(); } catch (e) { /* stopped */ } } }
+  function stopListening() {
+    const r = rec;
+    if (!r) return;
+    try { r.stop(); } catch (e) { /* stopped */ }
+    setTimeout(() => r._wrap && r._wrap(), 1200); // if the browser never fires onend, finish it ourselves
+  }
 
   // ---------- the call ----------
   async function startCall() {
@@ -640,7 +678,7 @@
     if (a === "close") return closeSpar();
     if (a === "persona") { sp.personaId = b.dataset.id; return paint(); }
     if (a === "diff") { sp.diff = b.dataset.id; return paint(); }
-    if (a === "start") return startCall();
+    if (a === "start") { unlockVoice(); return startCall(); }
     if (a === "mic") return sp.listening ? stopListening() : startListening();
     if (a === "hangup") { sp.ended = sp.ended || "ended"; if (synth) synth.cancel(); return finish(); }
     if (a === "peek") {
@@ -648,7 +686,7 @@
       sp.peek = c ? { q: c.q, a: fillVars(c.a, sp.lead.raw) } : { q: "", a: "No card for this one. Acknowledge, answer in one line, then ask a question." };
       return paint();
     }
-    if (a === "again") { const keep = { personaId: sp.personaId, diff: sp.diff }; closeSpar(); openSpar(); Object.assign(sp, keep); return startCall(); }
+    if (a === "again") { unlockVoice(); const keep = { personaId: sp.personaId, diff: sp.diff }; closeSpar(); openSpar(); Object.assign(sp, keep); return startCall(); }
     if (a === "setup") { sp.step = "setup"; sp.ended = null; return paint(); }
   }
   document.addEventListener("change", (e) => {
