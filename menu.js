@@ -7,6 +7,7 @@
   const ABOUT = {
     overview: "The hub: everything at a glance",
     gameplan: "This week's 3, KPIs, SOI list, class follow-ups",
+    stash: "Calendar for your time and money",
     crm: "Daily 20 conversations, follow-ups, contacts",
     dialer: "Farm list calling, scripts, practice",
     inbox: "Find leads in Gmail, clean up",
@@ -14,6 +15,7 @@
   const items = () => [
     { id: "overview", name: "Overview" },
     { id: "gameplan", name: "Game Plan" },
+    { id: "stash", name: "Money Stash" },
     { id: "crm", name: "Daily 20 CRM" },
     { id: "dialer", name: "Dialer" },
     { id: "inbox", name: "Inbox" },

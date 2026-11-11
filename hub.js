@@ -19,6 +19,11 @@ function hubTiles() {
   const queue = typeof queueLeads === "function" ? queueLeads().length : 0;
   tiles.push({ id: "dialer", name: "Dialer", big: plural(callbacks, "callback"), small: `${queue} in the call queue`, alert: callbacks > 0 });
   tiles.push({ id: "inbox", name: "Inbox", big: "Scan", small: "find leads in Gmail" });
+  if (typeof stashDay === "function") {
+    const todays = stashDay(today).filter((it) => it.kind === "event");
+    const nextUp = todays.find((it) => it.time) || todays[0];
+    tiles.push({ id: "stash", name: "Money Stash", big: plural(todays.length, "event"), small: nextUp ? `${nextUp.time ? sTime(nextUp.time) + " " : ""}${nextUp.title}` : "Nothing booked today", alert: false });
+  }
   if (typeof gpState === "function") {
     const m = gpState().monday[weekKey()];
     const left = m ? m.picks.filter((p) => !p.done).length : 3;

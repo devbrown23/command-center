@@ -200,13 +200,14 @@ function renderTabs() {
   const tabs = [
     { id: "overview", name: "Overview", color: "var(--accent)" },
     { id: "gameplan", name: "Game Plan", color: "#ffd23f" },
+    { id: "stash", name: "Money Stash", color: "#3dffa8" },
     { id: "crm", name: "Daily 20 CRM", color: "#1f6feb" },
     { id: "dialer", name: "Dialer", color: "#3dffa8" },
     { id: "inbox", name: "Inbox", color: "#ff4fd8" },
     ...BUSINESSES,
   ];
   // Short labels keep the top bar on one clean line; the full names are in the menu.
-  const SHORT = { crm: "Daily 20", realestate: "Real Estate", dropship: "Dropship", trucking: "Trucking", juice: "Juice", content: "Video" };
+  const SHORT = { stash: "Stash", crm: "Daily 20", realestate: "Real Estate", dropship: "Dropship", trucking: "Trucking", juice: "Juice", content: "Video" };
   document.getElementById("tabs").innerHTML = `<div class="tabs-inner">
     <button class="tabs-logo" data-tab="overview" title="Overview">☠</button>
     ${tabs.map((t) => `<button data-tab="${t.id}" style="--tab:${t.color}" class="${t.id === currentTab ? "active" : ""}" title="${esc(t.name)}">${esc(SHORT[t.id] || t.name)}</button>`).join("")}
@@ -406,13 +407,14 @@ function renderVideos(biz, s, today) {
 }
 
 function render() {
-  if (!["overview", "gameplan", "crm", "dialer", "inbox"].includes(currentTab) && !BUSINESSES.some((b) => b.id === currentTab)) currentTab = "overview";
+  if (!["overview", "gameplan", "stash", "crm", "dialer", "inbox"].includes(currentTab) && !BUSINESSES.some((b) => b.id === currentTab)) currentTab = "overview";
   renderTabs();
   document.body.dataset.tab = currentTab;
   const biz = BUSINESSES.find((b) => b.id === currentTab);
   const view = document.getElementById("view");
   if (currentTab === "crm") view.innerHTML = renderCrm();
   else if (currentTab === "gameplan") view.innerHTML = renderGamePlan();
+  else if (currentTab === "stash") view.innerHTML = renderStash();
   else if (currentTab === "dialer") view.innerHTML = renderDialer();
   else if (currentTab === "inbox") view.innerHTML = renderInbox();
   else view.innerHTML = biz ? renderBusiness(biz) : renderOverview();
