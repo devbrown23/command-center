@@ -566,3 +566,11 @@ ul.list li.done .ds-check span { text-decoration: line-through; color: var(--mut
 .ss-hq .btn-row a { text-decoration: none; padding: 6px 12px; font-size: 13px; }
 .dial-intel { margin: 10px 0 4px; padding: 10px 12px; border: 1px solid rgba(255, 170, 60, 0.25); border-radius: 10px; background: rgba(255, 170, 60, 0.05); display: grid; gap: 4px; font-size: 14px; }
 .dial-intel .tag { margin-right: 4px; }
+
+/* Game Plan */
+.gp-kpis { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.gp-kpi { padding: 12px; border: 1px solid var(--line); border-radius: 10px; min-width: 0; }
+.gp-kpi .value { font-size: 22px; margin: 4px 0 6px; }
+.gp-seg { margin-top: 14px; }
+.gp-seg h4 { margin: 0 0 4px; }
+input.next-step { width: 100%; max-width: 420px; margin-top: 4px; font-size: 13px; padding: 4px 8px; }

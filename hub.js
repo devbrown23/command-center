@@ -19,6 +19,12 @@ function hubTiles() {
   const queue = typeof queueLeads === "function" ? queueLeads().length : 0;
   tiles.push({ id: "dialer", name: "Dialer", big: plural(callbacks, "callback"), small: `${queue} in the call queue`, alert: callbacks > 0 });
   tiles.push({ id: "inbox", name: "Inbox", big: "Scan", small: "find leads in Gmail" });
+  if (typeof gpState === "function") {
+    const m = gpState().monday[weekKey()];
+    const left = m ? m.picks.filter((p) => !p.done).length : 3;
+    const classDue = (state.crm?.contacts || []).filter((c) => typeof classStepDue === "function" && classStepDue(c)).length;
+    tiles.push({ id: "gameplan", name: "Game Plan", big: plural(left, "priority"), small: classDue ? `${classDue} class follow-ups due` : "This week's 3", alert: classDue > 0 });
+  }
   for (const biz of BUSINESSES) {
     const open = (state[biz.id]?.todos || []).filter((x) => !x.done);
     tiles.push({ id: biz.id, name: biz.name, big: plural(open.length, "task"), small: open[0] ? `Next: ${open[0].text}` : "All clear", alert: false });

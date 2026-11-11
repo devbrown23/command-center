@@ -10,6 +10,14 @@ One page to run all my businesses:
 - **Video Content**: Canon R8 posts with views, plus paid video shoots
 - **Gaming**: TikTok and YouTube videos and views
 
+The **Game Plan** tab (second tab) holds:
+- **Monday review**: what slipped last week (Daily 20 days missed, overdue follow-ups, stalled deals, class follow-ups not sent, SOI list not worked, no review asks, no Thursday email, appointments under 5, Stack & Smoke under its tool costs, Friday review skipped) turned into three priorities for the week. They lock on the first look of the week, show on the Overview as "This week's 3", and each has a Go button to the right tab.
+- **KPI dashboard**: closings vs. 20 a year (with an on-pace number), Google reviews vs. 200, class signups vs. 240, eBay card sales, Stack & Smoke sales vs. monthly tools, and commission this year. Goals and the booking link are editable.
+- **Class to client**: paste a class's attendees (name, phone, email per line) and each lands in the CRM as a Homebuyer class lead with the next step "Book a 1-on-1 game plan", optionally shared with the lender's Client Pool, and a 4-step follow-up (same night, day 2, day 7, day 14) with the booking link in each text. Booked stops the sequence.
+- **SOI outreach**: contacts grouped into past clients, class grads, sphere and cold (active clients stay in the Daily 20), with a weekly list of who's due (longest since contact first), this month's drafted message per group, and Call / Text / Email buttons that count toward the Daily 20.
+
+Every contact also has a **Next step** field; contacts shared with the lender send it to the Client Pool.
+
 The **Daily 20 CRM** tab runs a 100-day prospecting plan: 20 conversations a day, a weekly rhythm with scripts, follow-up reminders and a contact list. New contacts can also be sent to Follow Up Boss through the `/api/crm-contact` function on the fromstart2keys site (set `CRM_PASSCODE` on Vercel and type the same passcode into CRM settings).
 
 The **Dialer** tab is a one-line power dialer for farm lists. Import an Equity Title (or skip-trace) CSV and it finds the owner name, site address and every phone column, and skips numbers marked DNC in the file. Each list has to be marked as scrubbed against the National Do Not Call Registry (good for 31 days) before it can be called, calls are only allowed 8am–8pm, and anyone you mark Do not call is never dialed again. Outcomes (keys 1–8) advance to the next owner; Call back, Interested and Appointment set add the owner to the Daily 20 CRM with a follow-up date, and every real conversation counts toward the Daily 20. Two ways to call: **My phone** (free, opens your phone app) or **Business line**, which calls from the browser on a Telnyx number using `/api/dialer-token` on the fromstart2keys site (set `TELNYX_API_KEY`, `TELNYX_CREDENTIAL_ID` and `TELNYX_CALLER_ID` on Vercel). The Telnyx calling library is in `vendor/telnyx-webrtc.js` (MIT) and only loads when you use the business line.

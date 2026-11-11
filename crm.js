@@ -455,7 +455,7 @@ async function shareToPool(contact) {
           email: contact.email,
           source: poolSourceFor(contact),
           agentStage: contact.stage,
-          agentNote: contact.notes,
+          agentNote: [contact.nextStep ? `Next step: ${contact.nextStep}` : "", contact.notes].filter(Boolean).join(" · "),
         },
       }),
     });
@@ -1029,6 +1029,7 @@ function renderCrm() {
       <span class="grow"><strong>${esc(contactName(c))}</strong>
         <span class="muted">${esc(c.source)}${c.phone ? ` · <a href="tel:${esc(c.phone)}">${esc(c.phone)}</a>` : ""}${c.email ? ` · ${esc(c.email)}` : ""}</span>
         ${c.notes ? `<br><span class="muted">${esc(c.notes)}</span>` : ""}
+        <br><input class="next-step" data-crm="nextstep" data-id="${c.id}" value="${esc(c.nextStep || "")}" placeholder="Next step (e.g. book showing, send CMA)">
         ${c.loan && c.loan.note ? `<br><span class="muted">🏦 Lender: ${esc(c.loan.note)}</span>` : ""}</span>
       <select data-crm="stage" data-id="${c.id}">${CRM_STAGES.map((s) => `<option ${s === c.stage ? "selected" : ""}>${s}</option>`).join("")}</select>
       <input type="date" data-crm="next" data-id="${c.id}" value="${esc(c.nextFollowUp || "")}" title="Next follow-up">
@@ -1241,6 +1242,12 @@ crmView.addEventListener("change", (e) => {
   if (!c) return;
   if (el.dataset.crm === "stage") c.stage = el.value;
   else if (el.dataset.crm === "next") c.nextFollowUp = el.value;
+  else if (el.dataset.crm === "nextstep") {
+    c.nextStep = el.value.trim();
+    save();
+    if (c.poolId) shareToPool(c); // keep the lender's view of the next step current
+    return;
+  }
   else return;
   save();
   render();
