@@ -42,6 +42,7 @@ const BUSINESSES = [
     itemLabel: "Card",
     amountLabel: "Price",
     stages: ["To list", "Listed", "Sold", "Shipped"],
+    cardsCalc: true,
     links: [
       { label: "eBay Seller Hub", url: "https://www.ebay.com/sh/ovw" },
     ],
@@ -342,6 +343,7 @@ function renderBusiness(biz) {
   ${biz.plan2026 ? renderPlan2026(s) : ""}
 
   ${biz.dropship ? renderDropship(s) : ""}
+  ${biz.cardsCalc ? renderCardCalc(s) : ""}
 
   ${biz.tracksVideos ? renderVideos(biz, s, today) : ""}
 

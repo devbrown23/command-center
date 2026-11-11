@@ -15,6 +15,8 @@ const DEFAULT_KEEP = [
 // Emails from these sites are usually lead notifications.
 const LEAD_DOMAINS = ["zillow.com", "realtor.com", "homes.com", "redfin.com", "homelight.com", "opcity.com", "followupboss.com"];
 const PERSONAL_DOMAINS = ["gmail.com", "yahoo.com", "icloud.com", "me.com", "outlook.com", "hotmail.com", "live.com", "aol.com", "msn.com", "comcast.net"];
+// Card buyers and sellers (ShonenHype): only flagged from real people, never from eBay's own mail.
+const CARD_WORDS = /\b(psa|bgs|cgc|slabs?|slabbed|graded|raw cards?|card lots?|holo|rookie|one piece cards?|pokemon|alt art|trading cards?|tcg)\b/i;
 const LEAD_WORDS = /\b(buy|buying|sell|selling|home|house|condo|townhome|listing|showing|tour|pre-?approv\w*|offer|mortgage|moving|relocat\w*|interested|inquiry|home value|cma|homebuyer|first[- ]time|open house)\b/i;
 
 // Scan results live here, not in saved state, so email details never land in backups.
@@ -196,6 +198,7 @@ function classify(s) {
   const text = `${s.latest.subject} ${s.latest.snippet}`;
   const isBulk = !!s.unsubscribe || s.labels.has("CATEGORY_PROMOTIONS");
   if (LEAD_DOMAINS.some((d) => s.domain.endsWith(d)) && LEAD_WORDS.test(text)) return "lead";
+  if (!isBulk && CARD_WORDS.test(text) && !/ebay\.com$/.test(s.domain)) return "cards";
   if (!isBulk && PERSONAL_DOMAINS.includes(s.domain) && LEAD_WORDS.test(text)) return "lead";
   if (isBulk && (s.ids.length >= 3 || s.unread === s.ids.length)) return "unsubscribe";
   if (s.labels.has("CATEGORY_SOCIAL") || s.labels.has("CATEGORY_UPDATES") || s.labels.has("CATEGORY_FORUMS")) return "archive";
@@ -277,7 +280,7 @@ function senderRow(s, actions) {
 function renderInbox() {
   const settings = inboxSettings();
   const scan = inboxScan;
-  const groups = { lead: [], client: [], keep: [], unsubscribe: [], archive: [], review: [] };
+  const groups = { lead: [], cards: [], client: [], keep: [], unsubscribe: [], archive: [], review: [] };
   if (scan) scan.senders.forEach((s) => groups[s.group].push(s));
   Object.values(groups).forEach((list) => list.sort((a, b) => b.ids.length - a.ids.length));
   const hogs = scan ? [...scan.messages].sort((a, b) => (b.sizeEstimate || 0) - (a.sizeEstimate || 0)).slice(0, 10) : [];
@@ -318,6 +321,12 @@ function renderInbox() {
       <p class="muted">People writing about buying, selling, showings or pre-approval, plus Zillow and Realtor.com leads. Add to CRM puts them in your Daily 20 as a Lead due today${fubSettings().passcode ? " and sends them to Follow Up Boss" : ""}.</p>
     </div>
   </div>
+
+  ${scan && groups.cards.length ? `<div class="card" style="margin-top:16px">
+    <h3>🃏 Card buyers & sellers</h3>
+    <ul class="list">${groups.cards.map((s) => senderRow(s, keepBtn(s))).join("")}</ul>
+    <p class="muted">People writing about cards (graded, lots, offers, trades). Reply from Gmail, and tap Keep so future scans leave them alone.</p>
+  </div>` : ""}
 
   ${scan ? `<div class="grid" style="margin-top:16px">
     <div class="card">

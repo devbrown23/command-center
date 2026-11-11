@@ -16,6 +16,10 @@ The **Game Plan** tab (second tab) holds:
 - **Class to client**: paste a class's attendees (name, phone, email per line) and each lands in the CRM as a Homebuyer class lead with the next step "Book a 1-on-1 game plan", optionally shared with the lender's Client Pool, and a 4-step follow-up (same night, day 2, day 7, day 14) with the booking link in each text. Booked stops the sequence.
 - **SOI outreach**: contacts grouped into past clients, class grads, sphere and cold (active clients stay in the Daily 20), with a weekly list of who's due (longest since contact first), this month's drafted message per group, and Call / Text / Email buttons that count toward the Daily 20.
 
+- **Top 30 referral partners**: contractors and other pros you refer work to. Text them your terms (10% of the final job, paid when the job is paid), mark when they agree, log each referral, enter the final total, and the fee is figured. Marking a job Paid adds the fee to Real Estate → Money in.
+
+The Daily 20 has a **💰 Made an offer** button with an offers-today count (half your Daily 20 target), and the Monday review flags weeks under 25 offers. The **Cards** tab has a **card profit calculator** (eBay's 13.25% + per-order fee, label, card cost, supplies) that logs the sale and its costs to Money in / out. The **Inbox** shows **🃏 Card buyers & sellers** (graded, PSA, slabs, lots...) separately from real-estate leads.
+
 Every contact also has a **Next step** field; contacts shared with the lender send it to the Client Pool.
 
 The **Daily 20 CRM** tab runs a 100-day prospecting plan: 20 conversations a day, a weekly rhythm with scripts, follow-up reminders and a contact list. New contacts can also be sent to Follow Up Boss through the `/api/crm-contact` function on the fromstart2keys site (set `CRM_PASSCODE` on Vercel and type the same passcode into CRM settings).

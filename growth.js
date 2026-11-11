@@ -364,6 +364,8 @@ function gpActions() {
   const re = state.realestate || { pipeline: [] };
   const stalled = re.pipeline.filter((p) => p.stage !== "Closed" && p.movedAt && gpDaysBetween(p.movedAt, today) >= 7);
   if (stalled.length) add(80, `${stalled.length} deal${stalled.length === 1 ? "" : "s"} stalled 7+ days (${stalled.slice(0, 3).map((p) => p.title).join(", ")})`, `Call ${stalled.slice(0, 3).map((p) => p.title).join(", ")} with a clear next step`, "realestate");
+  const offers = (state.crm.offers || []).filter((o) => o.date >= last && o.date < addDays(last, 7)).length;
+  if (offers < 25) add(58, `${offers} offer${offers === 1 ? "" : "s"} made (goal 50 a week)`, "End every conversation with an offer: a game plan call, a home value, a showing", "crm");
   if (!lw.reviewsAsked) add(55, "No review requests sent", "Ask 3 past clients for a Google review", "crm");
   const email = state.crm.emails && state.crm.emails[last];
   if (!email || !email.sent) add(50, "Thursday value email didn't go out", "Send Thursday's value email, then call everyone who opens it Friday", "crm");
@@ -414,7 +416,8 @@ function renderGamePlan() {
   return `${renderMonday(false)}
     ${renderKpis()}
     ${renderClassFunnel()}
-    ${renderSoi()}`;
+    ${renderSoi()}
+    ${typeof renderPartners === "function" ? renderPartners() : ""}`;
 }
 
 // ---------- events ----------

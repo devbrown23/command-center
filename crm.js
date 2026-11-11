@@ -1052,6 +1052,8 @@ function renderCrm() {
       <p class="muted">${esc(byType)}</p>
       <div class="muted">Log a conversation:</div>
       <div class="btn-row">${touchButtons()}<button data-crm="touch" data-type="note">Note card</button><button class="x" data-crm="undo" title="Undo last">↶ Undo</button></div>
+      <div class="btn-row"><button class="primary" data-crm="offer">💰 Made an offer</button>
+        <span class="muted">Offers today: <strong>${(crm.offers || []).filter((o) => o.date === todayStr()).length} / ${Math.ceil(target / 2)}</strong> · an offer you don't make is an offer they can't accept</span></div>
       <div class="week">${last7}</div>
     </div>
 
@@ -1170,6 +1172,9 @@ crmView.addEventListener("click", (e) => {
       return;
     case "touch":
       logTouch(btn.dataset.type, id);
+      break;
+    case "offer":
+      crm.offers = [...(crm.offers || []), { id: uid(), date: todayStr(), contactId: id || null }];
       break;
     case "undo":
       crm.touches.pop();
