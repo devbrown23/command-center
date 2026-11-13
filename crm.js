@@ -893,6 +893,8 @@ function renderEmailAndDoubleDip() {
       <ul class="list">
         <li class="${email.sent ? "done" : ""}"><input type="checkbox" data-crm="email-sent" ${email.sent ? "checked" : ""}>
           <span class="grow"><strong>Thursday:</strong> send a value email to your whole database (buyers, sellers, sphere)</span></li>
+        <li><span class="grow">🔑 <strong>The Keys Letter:</strong> your 3–5 favorite homes this week with your take on each. Write and send it on the Letter Desk; Results lists who clicked, so you know who to call Friday.</span>
+          <a class="btn primary" href="${esc(dealSiteUrl("/letter/edit"))}" target="_blank" rel="noopener">Letter Desk</a></li>
         <li><span class="grow"><strong>Friday:</strong> call everyone who opened it. Most opens happen in the first 24 hours. Log each with the Call button.</span></li>
         <li><span class="grow"><strong>After each call:</strong> send a short follow-up email confirming what you talked about.</span></li>
       </ul>
