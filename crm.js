@@ -419,7 +419,7 @@ async function pullFromFub(quiet = false) {
 // Contacts shared here show up on fromstart2keys.com/pool, where the lender updates loan progress.
 // Uses the same site link and passcode as the Follow Up Boss connection.
 
-const POOL_SOURCE = { "Homebuyer class": "Homebuyer class" };
+const POOL_SOURCE = { "Homebuyer class": "Homebuyer class", "Referral": "Referral" };
 let poolPulling = false;
 
 function poolUrl() {
